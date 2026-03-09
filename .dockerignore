@@ -1,0 +1,9 @@
+__pycache__
+*.py[cod]
+venv/
+.env
+.git/
+tests/
+docs/
+*.md
+chroma_data/

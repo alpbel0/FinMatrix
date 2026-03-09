@@ -1,0 +1,50 @@
+services:
+  api:
+    container_name: finmatrix-api
+    build: ./backend
+    ports:
+      - "8002:8000"  # Host:8002 → Container:8000
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://finmatrix:finmatrix@db:5432/finmatrix
+      - CHROMA_HOST=vector
+      - CHROMA_PORT=8000
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - SECRET_KEY=${SECRET_KEY}
+    depends_on:
+      db:
+        condition: service_healthy
+      vector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  db:
+    container_name: finmatrix-db
+    image: postgres:15
+    environment:
+      POSTGRES_USER: finmatrix
+      POSTGRES_PASSWORD: finmatrix
+      POSTGRES_DB: finmatrix
+    ports:
+      - "5433:5432"  # Host:5433 → Container:5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finmatrix"]
+      interval: 10s
+      retries: 5
+
+  vector:
+    container_name: finmatrix-vector
+    image: chromadb/chroma:latest
+    ports:
+      - "8001:8000"  # Host:8001 → Container:8000
+    volumes:
+      - chroma_data:/chroma/chroma
+
+volumes:
+  postgres_data:
+  chroma_data:
