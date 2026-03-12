@@ -467,18 +467,16 @@
 ### Task 2.5: SQLAlchemy Models — KAP Reports & News
 
 **Tahmini Süre:** 2 saat
-**Durum:** ⬜
+**Durum:** ✅ Tamamlandı (12.03.2026)
 
-- [ ] Custom ENUM type'ları tanımla: `sync_status`, `news_source`
-- [ ] `models/kap_report.py` → `kap_reports` tablosu
-  - [ ] stock_id, title, pdf_url, published_date, fetched_date, chroma_sync_status (PENDING/SUCCESS/FAILED), chunk_count
-  - [ ] UNIQUE(stock_id, title, published_date)
-- [ ] `models/news.py` → `news` tablosu
-  - [ ] stock_id (nullable FK), title, content, published_date, source_type (kap_summary/external_news/manual), source_ref_id
-- [ ] `models/user_news.py` → `user_news` tablosu
-  - [ ] user_id, news_id, is_read, read_at
-  - [ ] UNIQUE(user_id, news_id)
-- [ ] Migration oluştur ve uygula
+- [x] Custom ENUM type'ları tanımla: `SyncStatus`, `NewsSource` (in financials.py)
+- [x] `models/kap_report.py` → `kap_reports` tablosu
+  - [x] stock_id, bildirim_no (unique), title, pdf_url, published_date, fetched_date, chroma_sync_status (PENDING/SUCCESS/FAILED), chunk_count
+- [x] `models/news.py` → `news` + `user_news` tabloları
+  - [x] `news`: stock_id (nullable FK), title, content, published_date, source_type (kap_summary/external_news/manual), source_ref_id
+  - [x] `user_news`: user_id, news_id (composite PK), is_read, read_at
+- [x] Stock/User model relationship'leri eklendi
+- [x] Migration oluşturuldu ve uygulandı (95be9d884fbd)
 
 ### Task 2.6: SQLAlchemy Models — Chat & AI Messages
 

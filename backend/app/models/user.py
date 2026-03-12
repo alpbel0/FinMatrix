@@ -17,6 +17,7 @@ from sqlalchemy.sql import func
 from app.database import Base
 
 if TYPE_CHECKING:
+    from app.models.news import UserNews
     from app.models.watchlist import Watchlist
 
 
@@ -56,6 +57,11 @@ class User(Base):
     watchlist_entries: Mapped[list["Watchlist"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
+    )
+
+    # One-to-many relationship with UserNews (read status)
+    news_read_status: Mapped[list["UserNews"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
     )
 
     __table_args__ = (Index("idx_users_email", "email"),)

@@ -18,6 +18,8 @@ if TYPE_CHECKING:
     from app.models.balance_sheet import BalanceSheet
     from app.models.cash_flow import CashFlow
     from app.models.income_statement import IncomeStatement
+    from app.models.kap_report import KAPReport
+    from app.models.news import News
     from app.models.stock_price import StockPrice
     from app.models.watchlist import Watchlist
 
@@ -69,6 +71,16 @@ class Stock(Base):
 
     # One-to-many relationship with CashFlow
     cash_flows: Mapped[list["CashFlow"]] = relationship(
+        back_populates="stock", cascade="all, delete-orphan"
+    )
+
+    # One-to-many relationship with KAPReport
+    kap_reports: Mapped[list["KAPReport"]] = relationship(
+        back_populates="stock", cascade="all, delete-orphan"
+    )
+
+    # One-to-many relationship with News
+    news_items: Mapped[list["News"]] = relationship(
         back_populates="stock", cascade="all, delete-orphan"
     )
 

@@ -8,7 +8,7 @@ Models are organized by domain:
 - user.py: users, telegram_settings
 - stock.py: stocks
 - watchlist.py: watchlist
-- financials.py: PeriodType enum
+- financials.py: PeriodType, SyncStatus, NewsSource enums
 - stock_price.py: stock_prices (partitioned)
 - balance_sheet.py: balance_sheets
 - income_statement.py: income_statements
@@ -24,8 +24,10 @@ Models are organized by domain:
 from app.database import Base
 from app.models.balance_sheet import BalanceSheet
 from app.models.cash_flow import CashFlow
-from app.models.financials import PeriodType
+from app.models.financials import NewsSource, PeriodType, SyncStatus
 from app.models.income_statement import IncomeStatement
+from app.models.kap_report import KAPReport
+from app.models.news import News, UserNews
 from app.models.stock import Stock
 from app.models.stock_price import StockPrice
 from app.models.user import TelegramSettings, User
@@ -41,5 +43,10 @@ __all__ = [
     "BalanceSheet",
     "IncomeStatement",
     "CashFlow",
+    "KAPReport",
+    "News",
+    "UserNews",
     "PeriodType",
+    "SyncStatus",
+    "NewsSource",
 ]

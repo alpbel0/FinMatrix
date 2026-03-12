@@ -19,10 +19,13 @@ from app.models import (  # noqa: F401
     BalanceSheet,
     CashFlow,
     IncomeStatement,
+    KAPReport,
+    News,
     Stock,
     StockPrice,
     TelegramSettings,
     User,
+    UserNews,
     Watchlist,
 )
 
