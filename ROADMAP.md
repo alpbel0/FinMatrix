@@ -428,16 +428,18 @@
 ### Task 2.3: SQLAlchemy Models — Stocks & Watchlist
 
 **Tahmini Süre:** 2 saat
-**Durum:** ⬜
+**Durum:** ✅ Tamamlandı (12.03.2026)
 
-- [ ] `models/stock.py` → `stocks` tablosu
-  - [ ] id, symbol (unique), yfinance_symbol, company_name, sector, exchange (default 'BIST'), is_active, created_at
-- [ ] `models/watchlist.py` → `watchlist` tablosu
-  - [ ] user_id (FK), stock_id (FK), added_at, notification_enabled
-  - [ ] UNIQUE(user_id, stock_id) constraint
-- [ ] Index: `idx_watchlist_user` on `watchlist(user_id)`
-- [ ] Migration oluştur ve uygula
-- [ ] Seed data: En az 20 popüler BIST hissesi ekle (THYAO, ASELS, GARAN, BIMAS, SISE, EREGL, KCHOL, AKBNK, TUPRS, SAHOL, TOASO, FROTO, TCELL, HEKTS, PGSUS, KOZAA, SASA, ENKAI, TAVHL, PETKM)
+- [x] `models/stock.py` → `stocks` tablosu
+  - [x] id, symbol (unique), yfinance_symbol, company_name, sector, exchange (default 'BIST'), is_active, created_at
+- [x] `models/watchlist.py` → `watchlist` tablosu
+  - [x] user_id (FK), stock_id (FK), added_at, notification_enabled
+  - [x] UNIQUE(user_id, stock_id) constraint (composite PK)
+- [x] Index: `idx_watchlist_user` on `watchlist(user_id)`
+- [x] Migration oluştur ve uygula
+- [x] Seed data: 20 popüler BIST hissesi eklendi (THYAO, ASELS, GARAN, BIMAS, SISE, EREGL, KCHOL, AKBNK, TUPRS, SAHOL, TOASO, FROTO, TCELL, HEKTS, PGSUS, KOZAA, SASA, ENKAI, TAVHL, PETKM)
+
+> **Not:** `scripts/seed_stocks.py` ile seed data yüklendi. Script idempotent — tekrar çalıştırılırsa mevcut hisseleri atlar.
 
 ### Task 2.4: SQLAlchemy Models — Financial Data
 

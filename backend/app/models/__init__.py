@@ -21,6 +21,8 @@ Models are organized by domain:
 """
 
 from app.database import Base
+from app.models.stock import Stock
 from app.models.user import TelegramSettings, User
+from app.models.watchlist import Watchlist
 
-__all__ = ["Base", "User", "TelegramSettings"]
+__all__ = ["Base", "User", "TelegramSettings", "Stock", "Watchlist"]

@@ -17,7 +17,7 @@ from sqlalchemy.sql import func
 from app.database import Base
 
 if TYPE_CHECKING:
-    pass
+    from app.models.watchlist import Watchlist
 
 
 class User(Base):
@@ -49,6 +49,12 @@ class User(Base):
     telegram_settings: Mapped[Optional["TelegramSettings"]] = relationship(
         back_populates="user",
         uselist=False,
+        cascade="all, delete-orphan",
+    )
+
+    # One-to-many relationship with Watchlist
+    watchlist_entries: Mapped[list["Watchlist"]] = relationship(
+        back_populates="user",
         cascade="all, delete-orphan",
     )
 
