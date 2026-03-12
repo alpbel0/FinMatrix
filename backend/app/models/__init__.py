@@ -21,11 +21,6 @@ Models are organized by domain:
 """
 
 from app.database import Base
+from app.models.user import TelegramSettings, User
 
-__all__ = ["Base"]
-
-# Model imports will be added as models are created in Tasks 2.2-2.7
-# Example:
-# from app.models.user import User, TelegramSettings
-# from app.models.stock import Stock
-# etc.
+__all__ = ["Base", "User", "TelegramSettings"]

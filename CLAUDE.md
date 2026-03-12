@@ -511,7 +511,7 @@ The test database uses:
 
 **Week 2 In Progress (12.03.2026):**
 - ✅ Task 2.1: Alembic Setup
-- ⬜ Task 2.2: SQLAlchemy Models — Users & Auth
+- ✅ Task 2.2: SQLAlchemy Models — Users & Auth
 - ⬜ Task 2.3: SQLAlchemy Models — Stocks & Watchlist
 - ⬜ Task 2.4: SQLAlchemy Models — Financial Data
 - ⬜ Task 2.5: SQLAlchemy Models — KAP Reports & News

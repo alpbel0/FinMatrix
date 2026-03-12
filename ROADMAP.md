@@ -413,16 +413,17 @@
 ### Task 2.2: SQLAlchemy Models — Users & Auth
 
 **Tahmini Süre:** 2 saat
-**Durum:** ⬜
+**Durum:** ✅ Tamamlandı (12.03.2026)
 
-- [ ] `models/user.py` → `users` tablosu modeli
-  - [ ] id, username (unique), email (unique), password_hash, telegram_chat_id, notification_enabled, created_at, updated_at
-- [ ] `models/telegram_settings.py` → `telegram_settings` tablosu
-  - [ ] user_id (FK), notification_times (JSONB), event_types (JSONB)
-  - [ ] UNIQUE(user_id) constraint
-- [ ] Index: `idx_users_email` on `users(email)`
-- [ ] Migration oluştur ve uygula
-- [ ] `psql` ile tabloların oluştuğunu doğrula
+- [x] `models/user.py` → `users` ve `telegram_settings` tabloları (tek dosyada)
+  - [x] `users`: id, username (unique), email (unique), password_hash, telegram_chat_id, notification_enabled, created_at, updated_at
+  - [x] `telegram_settings`: user_id (FK, PK), notification_times (JSONB), event_types (JSONB)
+  - [x] One-to-one relationship (back_populates)
+- [x] Index: `idx_users_email` on `users(email)`
+- [x] Migration oluştur ve uygula
+- [x] `psql` ile tabloların oluştuğunu doğrula
+
+> **Not:** Her iki model de `user.py` dosyasında tanımlandı. Daha temiz import ve relationship yönetimi için tek dosya yaklaşımı kullanıldı.
 
 ### Task 2.3: SQLAlchemy Models — Stocks & Watchlist
 

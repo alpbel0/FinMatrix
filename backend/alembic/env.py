@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.config import settings
 from app.database import Base
+from app.models import TelegramSettings, User  # noqa: F401
 
 # Alembic Config object
 config = context.config
