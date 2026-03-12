@@ -15,6 +15,10 @@ from sqlalchemy.sql import func
 from app.database import Base
 
 if TYPE_CHECKING:
+    from app.models.balance_sheet import BalanceSheet
+    from app.models.cash_flow import CashFlow
+    from app.models.income_statement import IncomeStatement
+    from app.models.stock_price import StockPrice
     from app.models.watchlist import Watchlist
 
 
@@ -45,6 +49,26 @@ class Stock(Base):
 
     # One-to-many relationship with Watchlist
     watchlist_entries: Mapped[list["Watchlist"]] = relationship(
+        back_populates="stock", cascade="all, delete-orphan"
+    )
+
+    # One-to-many relationship with StockPrice
+    prices: Mapped[list["StockPrice"]] = relationship(
+        back_populates="stock", cascade="all, delete-orphan"
+    )
+
+    # One-to-many relationship with BalanceSheet
+    balance_sheets: Mapped[list["BalanceSheet"]] = relationship(
+        back_populates="stock", cascade="all, delete-orphan"
+    )
+
+    # One-to-many relationship with IncomeStatement
+    income_statements: Mapped[list["IncomeStatement"]] = relationship(
+        back_populates="stock", cascade="all, delete-orphan"
+    )
+
+    # One-to-many relationship with CashFlow
+    cash_flows: Mapped[list["CashFlow"]] = relationship(
         back_populates="stock", cascade="all, delete-orphan"
     )
 

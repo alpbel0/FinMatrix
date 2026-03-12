@@ -444,24 +444,25 @@
 ### Task 2.4: SQLAlchemy Models — Financial Data
 
 **Tahmini Süre:** 3 saat
-**Durum:** ⬜
+**Durum:** ✅ Tamamlandı (12.03.2026)
 
-- [ ] `models/stock_prices.py` → `stock_prices` tablosu
-  - [ ] stock_id, timestamp, open, high, low, close, volume
-  - [ ] PRIMARY KEY (stock_id, timestamp)
-  - [ ] PARTITION BY RANGE (timestamp) — aylık partition
-- [ ] `models/balance_sheet.py` → `balance_sheets` tablosu
-  - [ ] stock_id, period, date, fiscal_year, fiscal_quarter, total_assets, total_liabilities, equity, cash, total_debt
-  - [ ] UNIQUE(stock_id, period, date)
-- [ ] `models/income_statement.py` → `income_statements` tablosu
-  - [ ] stock_id, period, date, fiscal_year, fiscal_quarter, revenue, net_income, operating_income, gross_profit, ebitda
-  - [ ] UNIQUE(stock_id, period, date)
-- [ ] `models/cash_flow.py` → `cash_flows` tablosu
-  - [ ] stock_id, period, date, fiscal_year, fiscal_quarter, operating_cash_flow, investing_cash_flow, financing_cash_flow, free_cash_flow
-  - [ ] UNIQUE(stock_id, period, date)
-- [ ] Index: `idx_stock_prices_stock_time` on `stock_prices(stock_id, timestamp)`
-- [ ] Migration oluştur ve uygula
-- [ ] Partition oluşturma SQL scriptini yaz (son 2 yıl + gelecek 6 ay)
+- [x] `models/financials.py` → `PeriodType` ENUM tanımı (Q1, Q2, Q3, Q4, ANNUAL)
+- [x] `models/stock_price.py` → `stock_prices` tablosu
+  - [x] stock_id, timestamp, open, high, low, close, volume
+  - [x] PRIMARY KEY (stock_id, timestamp)
+  - [x] PARTITION BY RANGE (timestamp) — aylık partition
+- [x] `models/balance_sheet.py` → `balance_sheets` tablosu
+  - [x] stock_id, period, date, fiscal_year, fiscal_quarter, total_assets, total_liabilities, equity, cash, total_debt
+  - [x] UNIQUE(stock_id, period, date)
+- [x] `models/income_statement.py` → `income_statements` tablosu
+  - [x] stock_id, period, date, fiscal_year, fiscal_quarter, revenue, net_income, operating_income, gross_profit, ebitda
+  - [x] UNIQUE(stock_id, period, date)
+- [x] `models/cash_flow.py` → `cash_flows` tablosu
+  - [x] stock_id, period, date, fiscal_year, fiscal_quarter, operating_cash_flow, investing_cash_flow, financing_cash_flow, free_cash_flow
+  - [x] UNIQUE(stock_id, period, date)
+- [x] Index: `idx_stock_prices_stock_time` on `stock_prices(stock_id, timestamp)`
+- [x] Migration oluşturuldu (c7d3e8f1a2b4)
+- [x] Partition oluşturma scripti: `scripts/create_partitions.py` (son 2 yıl + gelecek 6 ay)
 
 ### Task 2.5: SQLAlchemy Models — KAP Reports & News
 
