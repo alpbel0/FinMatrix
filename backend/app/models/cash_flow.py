@@ -13,7 +13,7 @@ from sqlalchemy import Date, Enum, ForeignKey, Index, Numeric, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
-from app.models.financials import PeriodType
+from app.models.enums import PeriodType
 
 if TYPE_CHECKING:
     from app.models.stock import Stock

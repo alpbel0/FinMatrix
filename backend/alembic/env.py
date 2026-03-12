@@ -18,6 +18,9 @@ from app.database import Base
 from app.models import (  # noqa: F401
     BalanceSheet,
     CashFlow,
+    ChatMessage,
+    ChatSession,
+    DocumentChunk,
     IncomeStatement,
     KAPReport,
     News,

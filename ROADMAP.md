@@ -481,20 +481,18 @@
 ### Task 2.6: SQLAlchemy Models — Chat & AI Messages
 
 **Tahmini Süre:** 2 saat
-**Durum:** ⬜
+**Durum:** ✅ Tamamlandı (12.03.2026)
 
-- [ ] Custom ENUM'lar: `message_role` (user/assistant/system), `message_type` (text/chart/table/system)
-- [ ] `models/chat_session.py` → `chat_sessions` tablosu
-  - [ ] user_id (FK), title, created_at, updated_at, last_message_at
-- [ ] `models/chat_message.py` → `chat_messages` tablosu
-  - [ ] session_id (FK), role, content, message_type, metadata (JSONB), sources (JSONB), timestamp
-- [ ] Custom ENUM: `embedding_status` (PENDING/SUCCESS/FAILED)
-- [ ] `models/document_chunk.py` → `document_chunks` tablosu
-  - [ ] kap_report_id (FK), chunk_index, chunk_text_hash, chroma_document_id, embedding_status
-  - [ ] UNIQUE(kap_report_id, chunk_index)
-- [ ] Index: `idx_chat_messages_session` on `chat_messages(session_id, timestamp)`
-- [ ] Index: `idx_document_chunks_report` on `document_chunks(kap_report_id)`
-- [ ] Migration oluştur ve uygula
+- [x] `models/enums.py` → ENUM'lar: `MessageRole`, `MessageType`, `EmbeddingStatus` (financials.py yeniden adlandırıldı)
+- [x] `models/chat.py` → `chat_sessions` + `chat_messages` tabloları
+  - [x] user_id (FK with CASCADE), title (nullable), created_at, updated_at, last_message_at
+  - [x] session_id (FK with CASCADE), role, content, message_type, extra_data (JSONB), sources (JSONB), timestamp
+- [x] `models/document_chunk.py` → `document_chunks` tablosu
+  - [x] kap_report_id (FK with CASCADE), chunk_index, chunk_text_hash, chroma_document_id, embedding_status
+  - [x] UNIQUE(kap_report_id, chunk_index)
+- [x] Index: `idx_chat_sessions_user`, `idx_chat_sessions_updated`, `idx_chat_messages_session`
+- [x] Index: `idx_document_chunks_report` on `document_chunks(kap_report_id)`
+- [x] Migration oluşturuldu ve uygulandı (d818c713f889)
 
 ### Task 2.7: SQLAlchemy Models — EvalOps & Pipeline
 

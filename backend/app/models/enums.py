@@ -5,6 +5,9 @@ This module contains:
 - PeriodType: Financial statement period type (Q1, Q2, Q3, Q4, ANNUAL)
 - SyncStatus: Sync status for KAP reports and embeddings
 - NewsSource: News source type
+- MessageRole: Chat message role (user, assistant, system)
+- MessageType: Chat message content type (text, chart, table, system)
+- EmbeddingStatus: Document chunk embedding status
 """
 
 from enum import Enum as PyEnum
@@ -34,3 +37,28 @@ class NewsSource(str, PyEnum):
     KAP_SUMMARY = "kap_summary"
     EXTERNAL_NEWS = "external_news"
     MANUAL = "manual"
+
+
+class MessageRole(str, PyEnum):
+    """Chat message role."""
+
+    USER = "user"
+    ASSISTANT = "assistant"
+    SYSTEM = "system"
+
+
+class MessageType(str, PyEnum):
+    """Chat message content type."""
+
+    TEXT = "text"
+    CHART = "chart"
+    TABLE = "table"
+    SYSTEM = "system"
+
+
+class EmbeddingStatus(str, PyEnum):
+    """Document chunk embedding status."""
+
+    PENDING = "PENDING"
+    SUCCESS = "SUCCESS"
+    FAILED = "FAILED"

@@ -17,6 +17,7 @@ from sqlalchemy.sql import func
 from app.database import Base
 
 if TYPE_CHECKING:
+    from app.models.chat import ChatSession
     from app.models.news import UserNews
     from app.models.watchlist import Watchlist
 
@@ -61,6 +62,11 @@ class User(Base):
 
     # One-to-many relationship with UserNews (read status)
     news_read_status: Mapped[list["UserNews"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+
+    # One-to-many relationship with ChatSession
+    chat_sessions: Mapped[list["ChatSession"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
 

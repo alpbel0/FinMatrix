@@ -13,9 +13,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from app.database import Base
-from app.models.financials import SyncStatus
+from app.models.enums import SyncStatus
 
 if TYPE_CHECKING:
+    from app.models.document_chunk import DocumentChunk
     from app.models.stock import Stock
 
 
@@ -54,6 +55,11 @@ class KAPReport(Base):
 
     # Relationship to Stock
     stock: Mapped["Stock"] = relationship(back_populates="kap_reports")
+
+    # One-to-many relationship with DocumentChunk
+    document_chunks: Mapped[list["DocumentChunk"]] = relationship(
+        back_populates="kap_report", cascade="all, delete-orphan"
+    )
 
     __table_args__ = (
         Index("idx_kap_reports_stock", "stock_id"),
