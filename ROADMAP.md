@@ -11,7 +11,7 @@
 
 | Phase | Hafta | Odak | Durum |
 |-------|-------|------|-------|
-| Phase 1 | Week 1–2 | Altyapı & Database | 🔄 Devam Ediyor (Week 1 ✅, Week 2 pending) |
+| Phase 1 | Week 1–2 | Altyapı & Database | 🔄 Devam Ediyor (Week 1 ✅, Week 2 başladı) |
 | Phase 2 | Week 3–4 | Data Pipeline & KAP Entegrasyonu | ⬜ |
 | Phase 3 | Week 5–6 | AI Chat & RAG Pipeline | ⬜ |
 | Phase 4 | Week 7 | Frontend–Backend Entegrasyonu | ⬜ |
@@ -391,20 +391,24 @@
 
 ## 📅 Week 2: Database Schema & Migrations
 
-**Tarih:** \_\_\_\_\_\_\_\_\_\_
+**Tarih:** 12-?.03.2026
 **Hedef:** Tüm tabloları oluştur, Alembic migration pipeline'ını kur
 
 ### Task 2.1: Alembic Setup
 
 **Tahmini Süre:** 1.5 saat
-**Durum:** ⬜
+**Durum:** ✅ Tamamlandı (12.03.2026)
 
-- [ ] `alembic init backend/alembic` çalıştır
-- [ ] `alembic.ini` → `DATABASE_URL` env'den okunsun
-- [ ] `alembic/env.py` → async engine desteği ekle
-- [ ] Test migration oluştur ve çalıştır (`alembic revision --autogenerate -m "init"`)
-- [ ] `alembic upgrade head` ile migration'ın uygulandığını doğrula
-- [ ] `alembic downgrade -1` ile rollback'in çalıştığını doğrula
+- [x] `backend/app/database.py` oluştur (async engine, session factory, Base)
+- [x] `alembic.ini` oluştur (config, logging)
+- [x] `alembic/env.py` oluştur (async engine desteği)
+- [x] `alembic/script.py.mako` oluştur (migration template)
+- [x] `alembic/versions/.gitkeep` oluştur
+- [x] `models/__init__.py` güncelle (Base import)
+- [x] Stale `__pycache__` dizinlerini temizle
+- [x] Test migration oluştur: `init_alembic_setup`
+- [x] `alembic upgrade head` ile migration'ın uygulandığını doğrula
+- [x] `alembic downgrade -1` ile rollback'in çalıştığını doğrula
 
 ### Task 2.2: SQLAlchemy Models — Users & Auth
 

@@ -1,6 +1,6 @@
 # CLAUDE.md — FinMatrix Project Context
 
-> **Last Updated:** March 10, 2026
+> **Last Updated:** March 12, 2026
 > **Project:** AI-Powered Stock Analysis Platform for BIST Investors
 > **Author:** Yiğitalp ([@alpbel0](https://github.com/alpbel0))
 
@@ -494,7 +494,7 @@ The test database uses:
 
 | Phase | Week | Focus | Status |
 |-------|------|-------|--------|
-| Phase 1 | Week 1-2 | Infrastructure & Database | In Progress (Week 1 ✅, Week 2 pending) |
+| Phase 1 | Week 1-2 | Infrastructure & Database | In Progress (Week 1 ✅, Week 2 started) |
 | Phase 2 | Week 3-4 | Data Pipeline & KAP Integration | Pending |
 | Phase 3 | Week 5-6 | AI Chat & RAG Pipeline | Pending |
 | Phase 4 | Week 7 | Frontend-Backend Integration | Pending |
@@ -508,6 +508,15 @@ The test database uses:
 - ✅ Task 1.3: Docker Setup
 - ✅ Task 1.4: FastAPI Boilerplate
 - ✅ Task 1.5: Test Infrastructure Setup (8 tests passing)
+
+**Week 2 In Progress (12.03.2026):**
+- ✅ Task 2.1: Alembic Setup
+- ⬜ Task 2.2: SQLAlchemy Models — Users & Auth
+- ⬜ Task 2.3: SQLAlchemy Models — Stocks & Watchlist
+- ⬜ Task 2.4: SQLAlchemy Models — Financial Data
+- ⬜ Task 2.5: SQLAlchemy Models — KAP Reports & News
+- ⬜ Task 2.6: SQLAlchemy Models — Chat & AI Messages
+- ⬜ Task 2.7: SQLAlchemy Models — Eval & Pipeline Logs
 
 **Total Estimated Effort:** ~125 hours over 10 weeks
 
