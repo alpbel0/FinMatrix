@@ -10,6 +10,7 @@ services:
       - CHROMA_PORT=8000
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - SECRET_KEY=${SECRET_KEY}
+      - TEST_DATABASE_URL=postgresql+asyncpg://finmatrix_test:finmatrix_test@test-db:5432/finmatrix_test
     depends_on:
       db:
         condition: service_healthy
@@ -20,6 +21,21 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+
+  test-db:
+    container_name: finmatrix-test-db
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: finmatrix_test
+      POSTGRES_PASSWORD: finmatrix_test
+      POSTGRES_DB: finmatrix_test
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finmatrix_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   db:
     container_name: finmatrix-db

@@ -9,7 +9,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import BigInteger, ForeignKey, Index, Numeric
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, Numeric
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -37,6 +37,7 @@ class StockPrice(Base):
         primary_key=True,
     )
     timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
         primary_key=True,
     )
     open: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)

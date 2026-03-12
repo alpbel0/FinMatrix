@@ -511,6 +511,27 @@
 - [x] Migration oluştur ve uygula (f47fc5508d95)
 - [x] Tüm tabloların listesini `\dt` ile kontrol et — 16 tablo + 1 view + 7 ENUM
 
+### Task 2.8: Comprehensive Test Suite
+
+**Tahmini Süre:** 4 saat
+**Durum:** ✅ Tamamlandı (12.03.2026)
+
+- [x] `tests/conftest.py` güncelle — DB fixtures, test_engine, test_session
+- [x] `tests/factories.py` güncelle — 16 model factory
+  - [x] UserFactory, TelegramSettingsFactory
+  - [x] StockFactory, WatchlistFactory, StockPriceFactory
+  - [x] BalanceSheetFactory, IncomeStatementFactory, CashFlowFactory
+  - [x] KAPReportFactory, NewsFactory, UserNewsFactory
+  - [x] ChatSessionFactory, ChatMessageFactory, DocumentChunkFactory
+  - [x] PipelineLogFactory, EvalLogFactory
+- [x] Unit tests oluştur (`tests/unit/test_models_unit.py`) — 57 test
+- [x] Config tests oluştur (`tests/unit/test_config.py`) — 14 test
+- [x] Integration tests oluştur (`tests/integration/test_models_integration.py`) — 44 test
+- [x] Relationship tests oluştur (`tests/integration/test_relationships.py`) — 15 test
+- [x] Constraint tests oluştur (`tests/integration/test_constraints.py`) — 28 test
+- [x] Tüm testler pass olmalı (~158 test)
+- [x] Test coverage raporu hazır
+
 ---
 
 # Phase 2 — Data Pipeline & KAP Entegrasyonu

@@ -57,8 +57,9 @@ def get_partition_ranges() -> List[Tuple[str, str, str]]:
     now = datetime.now()
     base_year, base_month = now.year, now.month
 
-    # Offsets: -23 … 0 (past 24 months) + 1 … 6 (future 6 months)
-    offsets = list(range(-23, 1)) + list(range(1, 7))
+    # Offsets: -60 … 0 (past 5 years) + 1 … 6 (future 6 months)
+    # Extended past to cover old test dates (e.g., 2024-01-01)
+    offsets = list(range(-60, 1)) + list(range(1, 7))
 
     partitions = []
     seen = set()
