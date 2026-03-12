@@ -11,7 +11,7 @@
 
 | Phase | Hafta | Odak | Durum |
 |-------|-------|------|-------|
-| Phase 1 | Week 1–2 | Altyapı & Database | 🔄 Devam Ediyor (Week 1 ✅, Week 2 başladı) |
+| Phase 1 | Week 1–2 | Altyapı & Database | ✅ Tamamlandı |
 | Phase 2 | Week 3–4 | Data Pipeline & KAP Entegrasyonu | ⬜ |
 | Phase 3 | Week 5–6 | AI Chat & RAG Pipeline | ⬜ |
 | Phase 4 | Week 7 | Frontend–Backend Entegrasyonu | ⬜ |
@@ -391,8 +391,9 @@
 
 ## 📅 Week 2: Database Schema & Migrations
 
-**Tarih:** 12-?.03.2026
+**Tarih:** 12.03.2026
 **Hedef:** Tüm tabloları oluştur, Alembic migration pipeline'ını kur
+**Durum:** ✅ Tamamlandı (Task 2.1-2.7 tamamlandı)
 
 ### Task 2.1: Alembic Setup
 
@@ -497,18 +498,18 @@
 ### Task 2.7: SQLAlchemy Models — EvalOps & Pipeline
 
 **Tahmini Süre:** 2 saat
-**Durum:** ⬜
+**Durum:** ✅ Tamamlandı (12.03.2026)
 
-- [ ] Custom ENUM: `pipeline_status` (PENDING/RUNNING/SUCCESS/FAILED)
-- [ ] `models/pipeline_log.py` → `pipeline_logs` tablosu
-  - [ ] run_id (UUID, unique), pipeline_name, job_name, step_name, stock_id (nullable), status, started_at, finished_at, error_message, processed_count, details (JSONB)
-- [ ] `models/eval_log.py` → `eval_logs` tablosu
-  - [ ] message_id (FK), pipeline_run_id (FK to run_id), bert_score, rouge_score, retrieval_score, judge_model_used, judge_reason, is_hallucinated, retry_count, source_chunks_used (JSONB), details (JSONB)
-- [ ] `hallucination_reports` VIEW oluştur → `SELECT * FROM eval_logs WHERE is_hallucinated = TRUE`
-- [ ] Index: `idx_eval_hallucinated` on `eval_logs(is_hallucinated, pipeline_run_id)`
-- [ ] Index: `idx_pipeline_logs_run_id` on `pipeline_logs(run_id)`
-- [ ] Migration oluştur ve uygula
-- [ ] Tüm tabloların listesini `\dt` ile kontrol et — 14 tablo + 1 view olmalı
+- [x] Custom ENUM: `pipeline_status` (PENDING/RUNNING/SUCCESS/FAILED)
+- [x] `models/pipeline_log.py` → `pipeline_logs` tablosu
+  - [x] run_id (UUID, unique), pipeline_name, job_name, step_name, stock_id (nullable), status, started_at, finished_at, error_message, processed_count, details (JSONB)
+- [x] `models/eval_log.py` → `eval_logs` tablosu
+  - [x] message_id (FK), pipeline_run_id (FK to run_id), bert_score, rouge_score, retrieval_score, judge_model_used, judge_reason, is_hallucinated, retry_count, source_chunks_used (JSONB), details (JSONB)
+- [x] `hallucination_reports` VIEW oluştur → `SELECT * FROM eval_logs WHERE is_hallucinated = TRUE`
+- [x] Index: `idx_eval_hallucinated` on `eval_logs(is_hallucinated, pipeline_run_id)`
+- [x] Index: `idx_pipeline_logs_run_id` on `pipeline_logs(run_id)`
+- [x] Migration oluştur ve uygula (f47fc5508d95)
+- [x] Tüm tabloların listesini `\dt` ile kontrol et — 16 tablo + 1 view + 7 ENUM
 
 ---
 

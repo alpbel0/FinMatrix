@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from app.models.income_statement import IncomeStatement
     from app.models.kap_report import KAPReport
     from app.models.news import News
+    from app.models.pipeline_log import PipelineLog
     from app.models.stock_price import StockPrice
     from app.models.watchlist import Watchlist
 
@@ -82,6 +83,11 @@ class Stock(Base):
     # One-to-many relationship with News
     news_items: Mapped[list["News"]] = relationship(
         back_populates="stock", cascade="all, delete-orphan"
+    )
+
+    # One-to-many relationship with PipelineLog
+    pipeline_logs: Mapped[list["PipelineLog"]] = relationship(
+        back_populates="stock"
     )
 
     __table_args__ = (Index("idx_stocks_symbol", "symbol"),)

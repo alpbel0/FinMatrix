@@ -62,3 +62,12 @@ class EmbeddingStatus(str, PyEnum):
     PENDING = "PENDING"
     SUCCESS = "SUCCESS"
     FAILED = "FAILED"
+
+
+class PipelineStatus(str, PyEnum):
+    """Pipeline execution status."""
+
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    SUCCESS = "SUCCESS"
+    FAILED = "FAILED"

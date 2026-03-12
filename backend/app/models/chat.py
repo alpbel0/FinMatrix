@@ -18,6 +18,7 @@ from app.database import Base
 from app.models.enums import MessageRole, MessageType
 
 if TYPE_CHECKING:
+    from app.models.eval_log import EvalLog
     from app.models.user import User
 
 
@@ -84,8 +85,9 @@ class ChatMessage(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
-    # Relationship
+    # Relationships
     session: Mapped["ChatSession"] = relationship(back_populates="messages")
+    eval_logs: Mapped[list["EvalLog"]] = relationship(back_populates="message")
 
     __table_args__ = (
         Index("idx_chat_messages_session", "session_id", "timestamp"),
