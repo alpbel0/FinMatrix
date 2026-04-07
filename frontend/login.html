@@ -10,15 +10,32 @@
 </head>
 <body>
   <div class="app-shell">
-    <section class="page-header"><h1>Login</h1><p class="muted">Week 1 auth shell.</p></section>
-    <form class="card form-stack">
-      <input class="input" type="email" placeholder="Email">
-      <input class="input" type="password" placeholder="Password">
-      <button class="button" type="button" onclick="window.FinMatrixAuth.setToken('dev-token'); window.location.href='dashboard.html';">Mock Login</button>
+    <section class="page-header"><h1>Login</h1><p class="muted">Sign in to your account.</p></section>
+    <form class="card form-stack" id="login-form">
+      <input class="input" type="email" id="email" placeholder="Email" required>
+      <input class="input" type="password" id="password" placeholder="Password" required minlength="6">
+      <button class="button" type="submit">Login</button>
+      <p id="error-message" class="error" style="display: none; color: #dc3545;"></p>
       <a class="muted" href="register.html">Create an account</a>
     </form>
   </div>
   <script src="js/api.js"></script>
   <script src="js/auth.js"></script>
+  <script>
+    document.getElementById("login-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      const errorMsg = document.getElementById("error-message");
+
+      try {
+        await window.FinMatrixAuth.loginUser(email, password);
+        window.location.href = "dashboard.html";
+      } catch (error) {
+        errorMsg.textContent = error.message;
+        errorMsg.style.display = "block";
+      }
+    });
+  </script>
 </body>
 </html>

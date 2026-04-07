@@ -12,7 +12,7 @@
 
 | Phase | Hafta | Odak | Durum |
 |---|---|---|---|
-| Phase 1 | Week 1-2 | Temel iskelet, database, UI shell, auth temeli | **Week 1: Done** |
+| Phase 1 | Week 1-2 | Temel iskelet, database, UI shell, auth temeli | **✅ Completed** |
 | Phase 2 | Week 3-4 | Veri kaynaklari + dashboard/watchlist/news slice'lari | Planned |
 | Phase 3 | Week 5-6 | RAG, AI chat ve frontend chat deneyimi | Planned |
 | Phase 4 | Week 7 | Entegrasyon derinlestirme ve admin/api tamamlama | Planned |
@@ -328,84 +328,87 @@ FinMatrix/
 
 ## Week 2: SQLAlchemy Models ve Temel Domain
 
-**Tarih:** ___________
+**Tarih:** 2026-04-07
 **Hedef:** Uygulamanin kalici veri modelini kurmak
-**Durum:** Planned
+**Durum:** ✅ Completed
 
 ### Task 2.1: User ve Watchlist Modelleri
 
 **Tahmini Sure:** 2 saat
-**Durum:** Planned
+**Durum:** ✅ Completed (Week 1'de yapildi)
 
-- [ ] `models/user.py` -> `users`, `telegram_settings`
-- [ ] `models/watchlist.py` -> `watchlist`
-- [ ] Alanlar:
-- [ ] `users`: id, username, email, password_hash, is_admin, created_at
-- [ ] `watchlist`: id, user_id, stock_id, notifications_enabled, created_at
-- [ ] Unique constraint: `(user_id, stock_id)`
+- [x] `models/user.py` -> `users`, `telegram_settings`
+- [x] `models/watchlist.py` -> `watchlist`
+- [x] Alanlar:
+- [x] `users`: id, username, email, password_hash, is_admin, created_at
+- [x] `watchlist`: id, user_id, stock_id, notifications_enabled, created_at
+- [x] Unique constraint: `(user_id, stock_id)`
 
 ### Task 2.2: Stock ve Price Modelleri
 
 **Tahmini Sure:** 3 saat
-**Durum:** Planned
+**Durum:** ✅ Completed (Week 1'de yapildi)
 
-- [ ] `models/stock.py` -> `stocks`
-- [ ] `models/stock_price.py` -> `stock_prices`
-- [ ] Alanlar:
-- [ ] `stocks`: id, symbol, company_name, sector, exchange, is_active, created_at
-- [ ] `stock_prices`: id, stock_id, date, open, high, low, close, volume, adjusted_close, source, created_at
-- [ ] Index: `idx_stock_symbol`
-- [ ] Index: `idx_stock_price_stock_date`
+- [x] `models/stock.py` -> `stocks`
+- [x] `models/stock_price.py` -> `stock_prices`
+- [x] Alanlar:
+- [x] `stocks`: id, symbol, company_name, sector, exchange, is_active, created_at
+- [x] `stock_prices`: id, stock_id, date, open, high, low, close, volume, adjusted_close, source, created_at
+- [x] Index: `idx_stock_symbol`
+- [x] Index: `idx_stock_price_stock_date`
 
 ### Task 2.3: Finansal Tablo Modelleri
 
 **Tahmini Sure:** 3 saat
-**Durum:** Planned
+**Durum:** ✅ Completed (Week 1'de yapildi)
 
-- [ ] `models/income_statement.py`
-- [ ] `models/balance_sheet.py`
-- [ ] `models/cash_flow.py`
-- [ ] Annual ve quarterly ayrimini modelde destekle
-- [ ] Kaynak provider bilgisini kaydet
-- [ ] `(stock_id, period_type, statement_date, source)` bazli unique constraint tanimla
+- [x] `models/income_statement.py`
+- [x] `models/balance_sheet.py`
+- [x] `models/cash_flow.py`
+- [x] Annual ve quarterly ayrimini modelde destekle
+- [x] Kaynak provider bilgisini kaydet
+- [x] `(stock_id, period_type, statement_date, source)` bazli unique constraint tanimla
 
 ### Task 2.4: KAP, News, Chat ve Pipeline Modelleri
 
 **Tahmini Sure:** 4 saat
-**Durum:** Planned
+**Durum:** ✅ Completed (Week 1'de yapildi)
 
-- [ ] `models/kap_report.py` -> `kap_reports`
-- [ ] `models/news.py` -> `news`, `user_news`
-- [ ] `models/chat.py` -> `chat_sessions`, `chat_messages`
-- [ ] `models/document_chunk.py` -> `document_chunks`
-- [ ] `models/pipeline_log.py` -> `pipeline_logs`
-- [ ] `models/eval_log.py` -> `eval_logs`
-- [ ] `kap_reports` alanlari:
-- [ ] stock_id, title, filing_type, pdf_url, source_url, published_at, provider, sync_status, chunk_count, created_at
-- [ ] `document_chunks` alanlari:
-- [ ] kap_report_id, chunk_index, chunk_text, chunk_text_hash, chroma_document_id, embedding_status
-- [ ] `pipeline_logs` alanlari:
-- [ ] run_id, pipeline_name, status, started_at, finished_at, processed_count, error_message, details
+- [x] `models/kap_report.py` -> `kap_reports`
+- [x] `models/news.py` -> `news`, `user_news`
+- [x] `models/chat.py` -> `chat_sessions`, `chat_messages`
+- [x] `models/document_chunk.py` -> `document_chunks`
+- [x] `models/pipeline_log.py` -> `pipeline_logs`
+- [x] `models/eval_log.py` -> `eval_logs`
+- [x] `kap_reports` alanlari:
+- [x] stock_id, title, filing_type, pdf_url, source_url, published_at, provider, sync_status, chunk_count, created_at
+- [x] `document_chunks` alanlari:
+- [x] kap_report_id, chunk_index, chunk_text, chunk_text_hash, chroma_document_id, embedding_status
+- [x] `pipeline_logs` alanlari:
+- [x] run_id, pipeline_name, status, started_at, finished_at, processed_count, error_message, details
 
 ### Task 2.5: Migrationlar
 
 **Tahmini Sure:** 2 saat
-**Durum:** Planned
+**Durum:** ✅ Completed
 
-- [ ] Ilk migration dosyasini olustur
-- [ ] Migration'i local DB'ye uygula
-- [ ] Tum tablolarin olustugunu dogrula
+- [x] Ilk migration dosyasini olustur (`f8ada4730564_initial_schema.py`)
+- [x] Migration'i local DB'ye uygula
+- [x] Tum tablolarin olustugunu dogrula (14 tablo + alembic_version)
 
 ### Task 2.6: Auth ve App Shell Frontend
 
 **Tahmini Sure:** 3 saat
-**Durum:** Planned
+**Durum:** ✅ Completed
 
-- [ ] `frontend/js/auth.js` akisini netlestir
-- [ ] Login/register formlarini backend schema'si ile uyumlu hale getir
-- [ ] Protected route mantigini belirle
-- [ ] Ortak layout, sidebar ve sayfa gecis deneyimini duzenle
-- [ ] API hazir olmasa bile auth ekranlari dummy/mocked akışla test edilebilsin
+- [x] `services/auth_service.py` - Password hashing (bcrypt), JWT (python-jose)
+- [x] `routers/auth.py` - `/register`, `/login`, `/me` endpointleri
+- [x] `schemas/auth.py` - RegisterRequest, LoginRequest, TokenResponse, UserResponse
+- [x] `frontend/js/auth.js` - registerUser, loginUser, getCurrentUser, logout
+- [x] `frontend/js/navigation.js` - Token validation, force redirect
+- [x] `frontend/login.html`, `frontend/register.html` - Gercek API baglantisi
+- [x] Unit testler: `tests/unit/test_auth_service.py` (11 test)
+- [x] Integration testler: `tests/integration/test_auth.py` (9 test)
 
 ---
 
