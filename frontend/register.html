@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>FinMatrix - Register</title>
-  <link rel="stylesheet" href="css/base.css">
-  <link rel="stylesheet" href="css/layout.css">
-  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/layout.css">
+  <link rel="stylesheet" href="/css/components.css">
 </head>
 <body>
   <div class="app-shell">
@@ -17,27 +17,9 @@
       <input class="input" type="password" id="password" placeholder="Password" required minlength="6">
       <button class="button" type="submit">Create Account</button>
       <p id="error-message" class="error" style="display: none; color: #dc3545;"></p>
-      <a class="muted" href="login.html">Already have an account?</a>
+      <a class="muted" href="/login.html">Already have an account?</a>
     </form>
   </div>
-  <script src="js/api.js"></script>
-  <script src="js/auth.js"></script>
-  <script>
-    document.getElementById("register-form").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const username = document.getElementById("username").value;
-      const email = document.getElementById("email").value;
-      const password = document.getElementById("password").value;
-      const errorMsg = document.getElementById("error-message");
-
-      try {
-        await window.FinMatrixAuth.registerUser(username, email, password);
-        window.location.href = "dashboard.html";
-      } catch (error) {
-        errorMsg.textContent = error.message;
-        errorMsg.style.display = "block";
-      }
-    });
-  </script>
+  <script type="module" src="/js/register-main.js"></script>
 </body>
 </html>

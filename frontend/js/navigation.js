@@ -1,58 +1,58 @@
+import { getCurrentUser, getToken, logout } from "./auth.js";
+
 const PROTECTED_PAGES = ["dashboard.html", "chat.html", "watchlist.html"];
 
-function isProtectedPage() {
+export function isProtectedPage() {
   const page = window.location.pathname.split("/").pop();
   return PROTECTED_PAGES.includes(page);
 }
 
-function checkAuthAndRedirect() {
-  const token = window.FinMatrixAuth?.getToken();
+export function checkAuthAndRedirect() {
+  const token = getToken();
   if (isProtectedPage() && !token) {
-    window.location.href = "login.html";
+    window.location.href = "/login.html";
     return false;
   }
   return true;
 }
 
-async function updateAuthStateDisplay() {
+export async function updateAuthStateDisplay() {
   const target = document.querySelector("[data-auth-state]");
   if (!target) return;
 
-  if (window.FinMatrixAuth?.isAuthenticated()) {
-    try {
-      const user = await window.FinMatrixAuth.getCurrentUser();
-      if (user) {
-        target.textContent = `Logged in as ${user.username}`;
-      } else {
-        target.textContent = "Guest";
-      }
-    } catch {
+  if (!getToken()) {
+    target.textContent = "Guest";
+    return;
+  }
+
+  try {
+    const user = await getCurrentUser();
+    if (user) {
+      target.textContent = `Logged in as ${user.username}`;
+    } else {
       target.textContent = "Guest";
+      if (isProtectedPage()) {
+        window.location.href = "/login.html";
+      }
     }
-  } else {
+  } catch {
     target.textContent = "Guest";
   }
 }
 
-function setupLogoutButton() {
+export function setupLogoutButton() {
   const logoutBtn = document.querySelector("[data-logout]");
-  if (logoutBtn && window.FinMatrixAuth) {
-    logoutBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      window.FinMatrixAuth.logout();
-    });
-  }
+  if (!logoutBtn) return;
+
+  logoutBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    logout();
+  });
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  // Check auth before anything else
-  if (!checkAuthAndRedirect()) return;
-
-  // Update auth state display
-  updateAuthStateDisplay();
-
-  // Setup logout button if present
+export async function initNavigation() {
+  if (!checkAuthAndRedirect()) return false;
+  await updateAuthStateDisplay();
   setupLogoutButton();
-});
-
-window.FinMatrixNavigation = { checkAuthAndRedirect, updateAuthStateDisplay, isProtectedPage };
+  return true;
+}

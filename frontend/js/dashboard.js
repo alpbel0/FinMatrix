@@ -1,8 +1,10 @@
-document.addEventListener("DOMContentLoaded", () => {
-  window.FinMatrixAuth?.requireAuth();
+import { mockData } from "./api.js";
+
+export function renderDashboard() {
   const root = document.querySelector("#dashboard-root");
   if (!root) return;
-  const data = window.FinMatrixAPI.mockData.dashboard;
+
+  const data = mockData.dashboard;
   root.innerHTML = `
     <div class="card">
       <span class="badge">${data.symbol}</span>
@@ -17,4 +19,4 @@ document.addEventListener("DOMContentLoaded", () => {
       <div class="card"><h3>Related KAP Filings</h3>${data.filings.map((f) => `<p><strong>${f.title}</strong><br><span class="muted">${f.date}</span></p>`).join("")}</div>
     </div>
   `;
-});
+}

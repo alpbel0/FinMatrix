@@ -1,5 +1,6 @@
-document.addEventListener("DOMContentLoaded", () => {
-  window.FinMatrixAuth?.requireAuth();
+import { mockData } from "./api.js";
+
+export function renderChat() {
   const output = document.querySelector("#chat-output");
   const form = document.querySelector("#chat-form");
   const input = document.querySelector("#chat-input");
@@ -12,11 +13,12 @@ document.addEventListener("DOMContentLoaded", () => {
     output.appendChild(card);
   };
 
-  window.FinMatrixAPI.mockData.chat.forEach(renderMessage);
+  output.innerHTML = "";
+  mockData.chat.forEach(renderMessage);
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     renderMessage({ role: "user", content: input.value, sources: [] });
     renderMessage({ role: "assistant", content: "Week 1 mock response.", sources: ["Mock source"] });
     form.reset();
   });
-});
+}
