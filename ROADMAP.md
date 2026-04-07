@@ -416,39 +416,42 @@ FinMatrix/
 
 ## Week 3: Market Data ve Dashboard Slice
 
-**Tarih:** ___________
+**Tarih:** 2026-04-07
 **Hedef:** `borsapy`, `pykap` ve `kap_sdk` tabanli provider servislerini kurarken dashboard sayfasini da ayni hafta calisir hale getirmek
-**Durum:** Planned
+**Durum:** In Progress
 
 ### Task 3.1: Provider Abstraction
 
 **Tahmini Sure:** 3 saat
-**Durum:** Planned
+**Durum:** ✅ Completed
 
-- [ ] `services/data/provider_models.py` olustur
-- [ ] Ortak veri modelleri:
-- [ ] `PriceBar`
-- [ ] `StockSnapshot`
-- [ ] `FinancialStatementSet`
-- [ ] `KapFiling`
-- [ ] `CompanyProfile`
-- [ ] `ProviderCapabilities`
-- [ ] `provider_registry.py` icinde capability bazli secim mantigi kur
-- [ ] Uygulama kodunun provider implementation detayini bilmemesini sagla
+- [x] `services/data/provider_models.py` olustur
+- [x] Ortak veri modelleri:
+- [x] `PriceBar`
+- [x] `StockSnapshot`
+- [x] `FinancialStatementSet`
+- [x] `KapFiling`
+- [x] `CompanyProfile`
+- [x] `ProviderCapabilities`
+- [x] `provider_exceptions.py` olustur - custom exception hierarchy (10 exception class)
+- [x] `provider_interface.py` olustur - Protocol tanimi
+- [x] `provider_registry.py` icinde capability bazli secim mantigi kur
+- [x] Uygulama kodunun provider implementation detayini bilmemesini sagla
 
 ### Task 3.2: Borsapy Market Data Provider
 
 **Tahmini Sure:** 4 saat
-**Durum:** Planned
+**Durum:** ✅ Completed
 
-- [ ] `borsapy_provider.py` olustur
-- [ ] Tek hisse icin fiyat gecmisi cekme fonksiyonu yaz
-- [ ] Batch fiyat update akisini yaz
-- [ ] Temel metrikleri alma akisini yaz
-- [ ] Finansal tablolari alma akisini yaz
-- [ ] Endeks, sektor veya ilgili piyasa ozetleri icin uygun borsapy yuzeylerini incele
-- [ ] Timeout, retry, error handling ekle
-- [ ] Test: THYAO, GARAN, ASELS icin veri cek
+- [x] `borsapy_provider.py` olustur
+- [x] Tek hisse icin fiyat gecmisi cekme fonksiyonu yaz
+- [x] Batch fiyat update akisini yaz
+- [x] Temel metrikleri alma akisini yaz
+- [x] Finansal tablolari alma akisini yaz
+- [x] Endeks, sektor veya ilgili piyasa ozetleri icin uygun borsapy yuzeylerini incele
+- [x] Timeout, retry, error handling ekle
+- [x] SQLAlchemy mapper'lar olustur: `mappers/stock_price_mapper.py`, `mappers/financials_mapper.py`
+- [x] Test: THYAO, GARAN, ASELS icin veri cek (22/26 integration test passed)
 
 ### Task 3.3: Pykap KAP Provider
 
