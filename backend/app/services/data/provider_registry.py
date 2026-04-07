@@ -33,9 +33,13 @@ class ProviderRegistry:
         except ImportError as e:
             logger.warning(f"Could not import BorsapyProvider: {e}")
 
-        # Future: Register other providers
-        # from app.services.data.providers.yfinance_provider import YFinanceProvider
-        # cls.register("yfinance", YFinanceProvider())
+        # Import and register Pykap provider (KAP disclosures)
+        try:
+            from app.services.data.providers.pykap_provider import PykapProvider
+            cls.register("pykap", PykapProvider())
+            logger.info("ProviderRegistry initialized with pykap provider")
+        except ImportError as e:
+            logger.warning(f"Could not import PykapProvider: {e}")
 
         cls._initialized = True
 

@@ -456,15 +456,15 @@ FinMatrix/
 ### Task 3.3: Pykap KAP Provider
 
 **Tahmini Sure:** 4 saat
-**Durum:** Planned
+**Durum:** ✅ Completed
 
-- [ ] `pykap_provider.py` olustur
-- [ ] Sirket arama ve ticker esleme yaz
-- [ ] Genel sirket bilgisi alma akisini yaz
-- [ ] Disclosure listesi cekme akisini yaz
-- [ ] Belirli tarih araligi ile filing sorgusu yaz
-- [ ] Filing metadata'sini ortak `KapFiling` modeline map et
-- [ ] Test: THYAO icin son bildirimleri cek
+- [x] `pykap_provider.py` olustur
+- [x] Sirket arama ve ticker esleme yaz
+- [x] Genel sirket bilgisi alma akisini yaz
+- [x] Disclosure listesi cekme akisini yaz
+- [x] Belirli tarih araligi ile filing sorgusu yaz
+- [x] Filing metadata'sini ortak `KapFiling` modeline map et
+- [x] Test: THYAO, GARAN, ASELS icin son bildirimleri cek (23/23 integration tests passed)
 
 ### Task 3.4: KAP SDK Fallback Provider
 

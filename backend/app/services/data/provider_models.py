@@ -15,9 +15,22 @@ class PeriodType(str, Enum):
 class DataSource(str, Enum):
     """Data source/provider identifier."""
     BORSAPY = "borsapy"
+    PYKAP = "pykap"  # Primary KAP disclosure provider
     # Future providers
+    # KAPSDK = "kap_sdk"  # KAP fallback provider (Task 3.4)
     # YFINANCE = "yfinance"
     # MANUAL = "manual"
+
+
+class FilingType(str, Enum):
+    """KAP filing type classification - human-friendly names mapped to pykap codes."""
+    FINANCIAL_REPORT = "FR"      # Finansal Rapor
+    ANNUAL_REPORT = "FAR"        # Faaliyet Raporu
+    MATERIAL_EVENT = "ODA"       # Olaylara Duyarlılık Analizi (material events)
+    INTERIM_REPORT = "SUR"       # Sermaye Artırım Raporu
+    DIVIDEND = "KDP"             # Kar Dağıtım Politikası
+    OTHER = "DEG"                # Diğer
+    UNKNOWN = "UNK"              # Bilinmeyen/untagged
 
 
 class ProviderCapability(str, Enum):

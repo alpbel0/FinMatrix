@@ -10,6 +10,11 @@ from app.services.data.mappers.financials_mapper import (
     upsert_income_statement,
     upsert_cash_flow,
 )
+from app.services.data.mappers.kap_report_mapper import (
+    map_kap_filing_to_model,
+    upsert_kap_filings,
+    get_kap_reports_for_stock,
+)
 
 __all__ = [
     "get_stock_id_by_symbol",
@@ -18,4 +23,7 @@ __all__ = [
     "upsert_balance_sheet",
     "upsert_income_statement",
     "upsert_cash_flow",
+    "map_kap_filing_to_model",
+    "upsert_kap_filings",
+    "get_kap_reports_for_stock",
 ]

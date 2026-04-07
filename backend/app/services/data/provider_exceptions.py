@@ -159,3 +159,34 @@ def map_borsapy_exception(exc: Exception) -> ProviderError:
 
     # Fallback: wrap any exception as generic ProviderError
     return ProviderError(str(exc), provider="borsapy")
+
+
+def map_pykap_exception(exc: Exception) -> ProviderError:
+    """Map pykap exceptions to provider exceptions.
+
+    Pykap raises:
+    - ValueError: Invalid ticker, invalid disclosure_type, invalid subject
+    - ConnectionError: Network/API failure (wrapped in requests.RequestException)
+    """
+    exc_str = str(exc).lower()
+
+    if isinstance(exc, ValueError):
+        # Pykap raises ValueError for invalid ticker in BISTCompany constructor
+        if "not found" in exc_str or "invalid ticker" in exc_str:
+            return ProviderSymbolNotFoundError(
+                symbol="unknown",
+                provider="pykap"
+            )
+        # Other ValueError cases (invalid disclosure type, etc.)
+        return ProviderError(str(exc), provider="pykap")
+
+    # Pykap uses ConnectionError for network failures
+    if isinstance(exc, ConnectionError) or "failed to reach" in exc_str:
+        return ProviderConnectionError(str(exc), provider="pykap")
+
+    # Timeout handling
+    if isinstance(exc, TimeoutError):
+        return ProviderTimeoutError(timeout_seconds=30.0, provider="pykap")
+
+    # Fallback: wrap any exception as generic ProviderError
+    return ProviderError(str(exc), provider="pykap")
