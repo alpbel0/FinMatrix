@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FinMatrix - Login</title>
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+  <div class="app-shell">
+    <section class="page-header"><h1>Login</h1><p class="muted">Week 1 auth shell.</p></section>
+    <form class="card form-stack">
+      <input class="input" type="email" placeholder="Email">
+      <input class="input" type="password" placeholder="Password">
+      <button class="button" type="button" onclick="window.FinMatrixAuth.setToken('dev-token'); window.location.href='dashboard.html';">Mock Login</button>
+      <a class="muted" href="register.html">Create an account</a>
+    </form>
+  </div>
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+</body>
+</html>
