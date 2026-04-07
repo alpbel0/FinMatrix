@@ -469,15 +469,16 @@ FinMatrix/
 ### Task 3.4: KAP SDK Fallback Provider
 
 **Tahmini Sure:** 3 saat
-**Durum:** Planned
+**Durum:** ✅ Completed
 
-- [ ] `kap_sdk_provider.py` olustur
-- [ ] `kap_sdk` importunu opsiyonel tut
-- [ ] Paket kurulu degilse graceful degrade yap
-- [ ] KAP sorgulari icin ikinci provider yuzeyi kur
-- [ ] `pykap` hata verdiginde fallback mantigi ekle
-- [ ] Fallback sonucu ile primary sonucu deduplicate et
-- [ ] Hangi endpoint'lerde fallback kullanilacagini netlestir
+- [x] `kap_sdk_provider.py` olustur
+- [x] `kap_sdk` importunu opsiyonel tut
+- [x] Paket kurulu degilse graceful degrade yap
+- [x] KAP sorgulari icin ikinci provider yuzeyi kur
+- [x] `pykap` hata verdiginde fallback mantigi ekle
+- [x] Fallback sonucu ile primary sonucu deduplicate et
+- [x] Mumkun olan alanlarda `kap_sdk` `disclosureDetail` metadata'si ile primary sonucu enrich et
+- [x] Hangi endpoint'lerde fallback kullanilacagini netlestir
 
 ### Task 3.5: Data Provider Unit Tests
 

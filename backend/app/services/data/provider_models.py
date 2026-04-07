@@ -16,8 +16,8 @@ class DataSource(str, Enum):
     """Data source/provider identifier."""
     BORSAPY = "borsapy"
     PYKAP = "pykap"  # Primary KAP disclosure provider
+    KAPSDK = "kap_sdk"  # KAP fallback provider (Task 3.4)
     # Future providers
-    # KAPSDK = "kap_sdk"  # KAP fallback provider (Task 3.4)
     # YFINANCE = "yfinance"
     # MANUAL = "manual"
 
@@ -135,6 +135,11 @@ class KapFiling(BaseModel):
     source_url: str | None = None
     published_at: datetime | None = None
     provider: DataSource = DataSource.BORSAPY
+    # Enrichment fields (from kap_sdk disclosureDetail)
+    summary: str | None = None  # Disclosure summary text
+    attachment_count: int | None = None  # Number of attachments
+    is_late: bool | None = None  # Late disclosure flag
+    related_stocks: str | None = None  # Related stock symbols
 
 
 class CompanyProfile(BaseModel):

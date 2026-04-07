@@ -34,12 +34,41 @@ class ProviderRegistry:
             logger.warning(f"Could not import BorsapyProvider: {e}")
 
         # Import and register Pykap provider (KAP disclosures)
+        pykap = None
         try:
             from app.services.data.providers.pykap_provider import PykapProvider
-            cls.register("pykap", PykapProvider())
+            pykap = PykapProvider()
+            cls.register("pykap", pykap)
             logger.info("ProviderRegistry initialized with pykap provider")
         except ImportError as e:
             logger.warning(f"Could not import PykapProvider: {e}")
+
+        # Import and register KapSdk provider (KAP fallback)
+        kap_sdk = None
+        try:
+            from app.services.data.providers.kap_sdk_provider import KapSdkProvider
+            kap_sdk = KapSdkProvider()
+            if kap_sdk.is_available():
+                cls.register("kap_sdk", kap_sdk)
+                logger.info("ProviderRegistry initialized with kap_sdk provider")
+            else:
+                logger.info("kap_sdk installed but not available, skipping registration")
+        except ImportError as e:
+            logger.info(f"kap_sdk not installed: {e}")
+
+        # Register FallbackKapProvider (composite) if pykap is available
+        if pykap:
+            try:
+                from app.services.data.providers.fallback_kap_provider import FallbackKapProvider
+                fallback_kap = FallbackKapProvider(
+                    primary=pykap,
+                    fallback=kap_sdk,
+                    fallback_enabled=kap_sdk is not None and kap_sdk.is_available(),
+                )
+                cls.register("fallback_kap", fallback_kap)
+                logger.info("ProviderRegistry initialized with fallback_kap provider")
+            except ImportError as e:
+                logger.warning(f"Could not import FallbackKapProvider: {e}")
 
         cls._initialized = True
 
@@ -134,7 +163,17 @@ def get_provider_for_metrics() -> MarketDataProvider:
 
 
 def get_provider_for_kap_filings() -> MarketDataProvider:
-    """Get provider for KAP filings."""
+    """Get provider for KAP filings with fallback enabled.
+
+    Prefers fallback_kap composite provider if available (pykap + kap_sdk fallback).
+    Falls back to pykap alone if fallback_kap not registered.
+    """
+    ProviderRegistry.initialize()
+
+    # Check if fallback_kap is registered
+    if "fallback_kap" in ProviderRegistry._providers:
+        return ProviderRegistry.get_provider("fallback_kap")
+    # Fall back to capability-based selection
     return ProviderRegistry.get_provider_for_capability(
         ProviderCapability.KAP_FILINGS
     )
