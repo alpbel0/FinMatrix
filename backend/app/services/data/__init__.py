@@ -34,6 +34,13 @@ from app.services.data.provider_registry import (
     get_provider_for_kap_filings,
 )
 from app.services.data.providers.borsapy_provider import BorsapyProvider
+from app.services.data.market_data_service import (
+    SyncResult,
+    BatchSyncResult,
+    sync_price_history,
+    batch_sync_prices,
+    get_active_stocks,
+)
 
 __all__ = [
     # Models
@@ -70,4 +77,10 @@ __all__ = [
     "get_provider_for_kap_filings",
     # Providers
     "BorsapyProvider",
+    # Services
+    "SyncResult",
+    "BatchSyncResult",
+    "sync_price_history",
+    "batch_sync_prices",
+    "get_active_stocks",
 ]

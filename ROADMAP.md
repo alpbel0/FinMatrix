@@ -523,33 +523,41 @@ FinMatrix/
 
 ## Week 4: Ingestion, Watchlist ve News Feed Slice
 
-**Tarih:** ___________
+**Tarih:** 2026-04-08
 **Hedef:** Ham provider verisini normalize edip veritabanina yazarken watchlist ve news feed ekranlarini ayni anda ilerletmek
-**Durum:** Planned
+**Durum:** In Progress
 
 ### Task 4.1: Price Ingestion
 
 **Tahmini Sure:** 3 saat
-**Durum:** Planned
+**Durum:** ✅ Completed
 
-- [ ] `market_data_service.py` olustur
-- [ ] Provider'dan gelen `PriceBar` verisini `stock_prices` tablosuna yaz
-- [ ] Upsert mantigi kur
-- [ ] Duplicate kayitlari atla
-- [ ] Batch sync islemini yaz
-- [ ] Test: Son 1 yillik fiyat verisini DB'ye yaz
+- [x] `market_data_service.py` olustur
+- [x] Provider'dan gelen `PriceBar` verisini `stock_prices` tablosuna yaz
+- [x] Upsert mantigi kur
+- [x] Duplicate kayitlari atla
+- [x] Batch sync islemini yaz
+- [x] PipelineLog tracking ekle
+- [x] Error handling ve retry logic
+- [x] Unit tests: 17 tests passing
+- [x] Integration tests: 8 tests passing
 
 ### Task 4.2: Financial Statements Ingestion
 
 **Tahmini Sure:** 3 saat
-**Durum:** Planned
+**Durum:** ✅ Completed
 
-- [ ] `financials_service.py` olustur
-- [ ] `borsapy` gelir tablosu verisini normalize et
-- [ ] `borsapy` bilanco verisini normalize et
-- [ ] `borsapy` cashflow verisini normalize et
-- [ ] Annual + quarterly kayit akisini destekle
-- [ ] Son 8 ceyreklik net kar verisini dogrula
+- [x] `financials_service.py` olustur
+- [x] `borsapy` gelir tablosu verisini normalize et
+- [x] `borsapy` bilanco verisini normalize et
+- [x] `borsapy` cashflow verisini normalize et
+- [x] Annual + quarterly kayit akisini destekle
+- [x] Son 8 ceyreklik net kar verisini dogrula (validate_quarterly_net_income)
+- [x] PipelineLog tracking ekle
+- [x] Error handling ve retry logic
+- [x] Unit tests: 20 tests passing
+- [x] Integration tests: 9 tests passing
+- [x] `pykap` ile tum BIST sirketlerini cekip `stocks` tablosuna otomatik seed et
 
 ### Task 4.3: KAP Reports Ingestion
 

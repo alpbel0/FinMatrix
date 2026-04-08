@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, Float, ForeignKey, Index, Integer, String, func
+from sqlalchemy import Date, DateTime, Float, ForeignKey, Index, Integer, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -8,7 +8,10 @@ from app.database import Base
 
 class StockPrice(Base):
     __tablename__ = "stock_prices"
-    __table_args__ = (Index("idx_stock_price_stock_date", "stock_id", "date"),)
+    __table_args__ = (
+        Index("idx_stock_price_stock_date", "stock_id", "date"),
+        UniqueConstraint("stock_id", "date", name="uq_stock_price_stock_date"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     stock_id: Mapped[int] = mapped_column(ForeignKey("stocks.id", ondelete="CASCADE"), nullable=False)

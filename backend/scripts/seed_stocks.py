@@ -1,5 +1,6 @@
-"""Seed BIST stocks and backfill price history from provider."""
+"""Seed BIST stocks from pykap and optionally backfill price history."""
 
+import argparse
 import asyncio
 import sys
 from pathlib import Path
@@ -7,6 +8,10 @@ from pathlib import Path
 # Add backend to path for imports
 backend_path = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_path))
+
+pykap_path = backend_path.parent / "search" / "pykap"
+if pykap_path.exists():
+    sys.path.insert(0, str(pykap_path))
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
@@ -17,21 +22,15 @@ from app.models.stock import Stock
 from app.services.data.mappers.stock_price_mapper import upsert_price_bars
 from app.services.data.provider_registry import get_provider_for_prices
 from app.services.utils.logging import logger
+from pykap.get_bist_companies import get_bist_companies
 
 
-# BIST stocks for MVP - 10 major stocks across sectors
-BIST_STOCKS = [
-    {"symbol": "THYAO", "company_name": "Turk Hava Yollari AO", "sector": "Transportation"},
-    {"symbol": "GARAN", "company_name": "Garanti Bankasi TAS", "sector": "Finance"},
-    {"symbol": "SAHOL", "company_name": "Sabanci Holding", "sector": "Conglomerates"},
-    {"symbol": "AKBNK", "company_name": "Akbank TAS", "sector": "Finance"},
-    {"symbol": "ASELS", "company_name": "Aselsan Elektronik", "sector": "Defense"},
-    {"symbol": "EREGL", "company_name": "Eregli Demir ve Celik Fabrikalari TAS", "sector": "Steel"},
-    {"symbol": "TKFEN", "company_name": "Tekfen Holding", "sector": "Construction"},
-    {"symbol": "KOZAA", "company_name": "Koza Altin Isletmeleri AS", "sector": "Mining"},
-    {"symbol": "ISCTR", "company_name": "Turkiye Is Bankasi TAS", "sector": "Finance"},
-    {"symbol": "YKBNK", "company_name": "Yapi ve Kredi Bankasi AS", "sector": "Finance"},
-]
+def fetch_bist_companies() -> list[dict]:
+    """Fetch the live BIST company list from KAP via pykap."""
+    logger.info("Fetching BIST company list from pykap...")
+    companies = get_bist_companies(online=True, output_format="dict")
+    logger.info(f"Fetched {len(companies)} BIST companies from KAP")
+    return companies
 
 
 async def seed_stocks(db: AsyncSession) -> int:
@@ -43,14 +42,19 @@ async def seed_stocks(db: AsyncSession) -> int:
     Returns:
         Count of stocks inserted/updated
     """
-    logger.info(f"Seeding {len(BIST_STOCKS)} stocks...")
+    companies = fetch_bist_companies()
+    logger.info(f"Seeding {len(companies)} stocks...")
 
     count = 0
-    for stock_data in BIST_STOCKS:
+    for company in companies:
+        symbol = (company.get("ticker") or "").strip().upper()
+        if not symbol:
+            continue
+
         stmt = insert(Stock).values(
-            symbol=stock_data["symbol"],
-            company_name=stock_data["company_name"],
-            sector=stock_data["sector"],
+            symbol=symbol,
+            company_name=company.get("name"),
+            sector=None,
             exchange="BIST",
             is_active=True,
         )
@@ -58,7 +62,7 @@ async def seed_stocks(db: AsyncSession) -> int:
             index_elements=["symbol"],
             set_={
                 "company_name": stmt.excluded.company_name,
-                "sector": stmt.excluded.sector,
+                "exchange": stmt.excluded.exchange,
                 "is_active": stmt.excluded.is_active,
             }
         )
@@ -122,24 +126,36 @@ async def backfill_prices(db: AsyncSession, period: str = "1y") -> dict[str, int
     return results
 
 
-async def main() -> None:
-    """Run full seed pipeline: stocks + prices."""
+async def main(with_prices: bool = False, period: str = "1y") -> None:
+    """Run stock seed pipeline and optionally backfill prices."""
     logger.info("Starting seed pipeline...")
 
     async with AsyncSessionLocal() as db:
         # Step 1: Seed stocks
         stock_count = await seed_stocks(db)
 
-        # Step 2: Backfill prices
-        price_counts = await backfill_prices(db, period="1y")
+        if with_prices:
+            price_counts = await backfill_prices(db, period=period)
+            total_prices = sum(price_counts.values())
+            logger.info(f"Seed complete: {stock_count} stocks, {total_prices} price bars")
 
-        # Summary
-        total_prices = sum(price_counts.values())
-        logger.info(f"Seed complete: {stock_count} stocks, {total_prices} price bars")
-
-        for symbol, count in price_counts.items():
-            logger.info(f"  {symbol}: {count} price bars")
+            for symbol, count in price_counts.items():
+                logger.info(f"  {symbol}: {count} price bars")
+        else:
+            logger.info(f"Seed complete: {stock_count} stocks")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    parser = argparse.ArgumentParser(description="Seed BIST stocks into the database.")
+    parser.add_argument(
+        "--with-prices",
+        action="store_true",
+        help="Also backfill price history for all active stocks after seeding.",
+    )
+    parser.add_argument(
+        "--period",
+        default="1y",
+        help="Price backfill period to use with --with-prices (default: 1y).",
+    )
+    args = parser.parse_args()
+    asyncio.run(main(with_prices=args.with_prices, period=args.period))
