@@ -483,18 +483,20 @@ FinMatrix/
 ### Task 3.5: Data Provider Unit Tests
 
 **Tahmini Sure:** 3 saat
-**Durum:** Planned
+**Durum:** ✅ Completed
 
-- [ ] `tests/mocks/mock_borsapy.py`
-- [ ] `tests/mocks/mock_pykap.py`
-- [ ] `tests/mocks/mock_kap_sdk.py`
-- [ ] `tests/unit/test_market_data_service.py`
-- [ ] `tests/unit/test_kap_data_service.py`
-- [ ] Testler:
-- [ ] Provider secimi
-- [ ] Fallback davranisi
-- [ ] Hata durumlari
-- [ ] Timeout ve retry davranisi
+- [x] `tests/mocks/mock_borsapy.py` - MockTicker, MockTickers, MockFastInfo, create_mock_price_dataframe
+- [x] `tests/mocks/mock_pykap.py` - MockBISTCompany, create_mock_disclosure_dict
+- [x] `tests/mocks/mock_kap_sdk.py` - Already existed (enhanced)
+- [x] `tests/unit/test_borsapy_provider.py` - 35+ tests for BorsapyProvider
+- [x] `tests/unit/test_provider_registry.py` - 22 tests for ProviderRegistry
+- [x] `tests/factories.py` - Provider model factories (PriceBarFactory, KapFilingFactory, etc.)
+- [x] Testler:
+  - [x] Provider secimi (capability-based selection)
+  - [x] Fallback davranisi (FallbackKapProvider preference)
+  - [x] Hata durumlari (exception mapping tests)
+  - [x] Timeout ve retry davranisi (base provider tests)
+- Note: test_market_data_service.py and test_kap_data_service.py deferred to Week 4 (services not yet created)
 
 ### Task 3.6: Dashboard API ve Frontend Slice
 
