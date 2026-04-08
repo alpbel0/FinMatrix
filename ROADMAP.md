@@ -562,14 +562,20 @@ FinMatrix/
 ### Task 4.3: KAP Reports Ingestion
 
 **Tahmini Sure:** 4 saat
-**Durum:** Planned
+**Durum:** ✅ Completed
 
-- [ ] `kap_data_service.py` olustur
-- [ ] `pykap` ve `kap_sdk` ciktilarini ortak formatta birlestir
-- [ ] `kap_reports` tablosuna metadata yaz
-- [ ] Duplicate kontrolu ekle
-- [ ] `stocks` ile filing eslemesini netlestir
-- [ ] Test: THYAO icin son 10 filing'i DB'ye yaz
+- [x] `kap_data_service.py` olustur
+- [x] `pykap` ve `kap_sdk` ciktilarini ortak formatta birlestir
+- [x] `kap_reports` tablosuna metadata yaz
+- [x] Duplicate kontrolu ekle
+- [x] `stocks` ile filing eslemesini netlestir
+- [x] KapReport modeline enrichment fields ekle (summary, attachment_count, is_late, related_stocks)
+- [x] PostgreSQL JSONB kullan related_stocks için
+- [x] filing_types default: ["FR"] (Financial Reports)
+- [x] Validation: source_url zorunlu, pdf_url opsiyonel
+- [x] Unit tests: 31 tests passing
+- [x] Integration tests: 9 tests passing
+- [x] Test: THYAO icin son 10 filing'i DB'ye yaz
 
 ### Task 4.4: Scheduled Sync Jobs
 

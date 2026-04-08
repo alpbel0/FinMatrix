@@ -12,6 +12,26 @@ from app.services.data.provider_models import KapFiling
 from app.services.utils.logging import logger
 
 
+def normalize_related_stocks(related_stocks: str | None) -> list[str] | None:
+    """
+    Normalize related_stocks string to JSON array for PostgreSQL JSONB storage.
+
+    Args:
+        related_stocks: Comma-separated string of stock symbols (e.g., "THYAO,GARAN,ASELS")
+
+    Returns:
+        List of normalized symbols (e.g., ["THYAO", "GARAN", "ASELS"]) or None
+    """
+    if not related_stocks:
+        return None
+    # Virgülle ayrılmış string -> list
+    stocks = [s.strip().upper() for s in related_stocks.split(',')]
+    # Boşları at, duplicate'leri temizle
+    stocks = [s for s in stocks if s]
+    stocks = list(dict.fromkeys(stocks))  # Preserve order, remove duplicates
+    return stocks if stocks else None
+
+
 async def get_stock_id_by_symbol(db: AsyncSession, symbol: str) -> int | None:
     """
     Get stock database ID from symbol.
@@ -60,6 +80,11 @@ async def map_kap_filing_to_model(
         provider=filing.provider.value,
         sync_status="PENDING",
         chunk_count=0,
+        # Enrichment fields
+        summary=filing.summary,
+        attachment_count=filing.attachment_count,
+        is_late=filing.is_late,
+        related_stocks=normalize_related_stocks(filing.related_stocks),
     )
 
 
@@ -105,6 +130,11 @@ async def upsert_kap_filings(
             provider=filing.provider.value,
             sync_status="PENDING",
             chunk_count=0,
+            # Enrichment fields
+            summary=filing.summary,
+            attachment_count=filing.attachment_count,
+            is_late=filing.is_late,
+            related_stocks=normalize_related_stocks(filing.related_stocks),
         )
 
         # On conflict (stock_id, source_url), update metadata
@@ -116,6 +146,11 @@ async def upsert_kap_filings(
                 "pdf_url": stmt.excluded.pdf_url,
                 "published_at": stmt.excluded.published_at,
                 "provider": stmt.excluded.provider,
+                # Enrichment fields
+                "summary": stmt.excluded.summary,
+                "attachment_count": stmt.excluded.attachment_count,
+                "is_late": stmt.excluded.is_late,
+                "related_stocks": stmt.excluded.related_stocks,
             }
         )
 
