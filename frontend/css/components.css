@@ -55,3 +55,14 @@
 }
 
 .metric { font-size: 1.5rem; font-weight: 700; }
+
+.chart-area {
+  position: relative;
+  height: 320px;
+  margin-top: 12px;
+}
+
+#price-chart {
+  width: 100% !important;
+  height: 100% !important;
+}

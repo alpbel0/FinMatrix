@@ -418,7 +418,7 @@ FinMatrix/
 
 **Tarih:** 2026-04-07
 **Hedef:** `borsapy`, `pykap` ve `kap_sdk` tabanli provider servislerini kurarken dashboard sayfasini da ayni hafta calisir hale getirmek
-**Durum:** In Progress
+**Durum:** ✅ Completed
 
 ### Task 3.1: Provider Abstraction
 
@@ -501,17 +501,23 @@ FinMatrix/
 ### Task 3.6: Dashboard API ve Frontend Slice
 
 **Tahmini Sure:** 4 saat
-**Durum:** Planned
+**Durum:** ✅ Completed
 
-- [ ] `GET /api/stocks`
-- [ ] `GET /api/stocks/{symbol}`
-- [ ] `GET /api/stocks/{symbol}/prices`
-- [ ] `GET /api/stocks/{symbol}/metrics`
-- [ ] `frontend/js/dashboard.js` icinde gercek API baglantisini kur
-- [ ] Fiyat chart alanini canli backend verisiyle besle
-- [ ] Metrik kartlarini backend cevabina bagla
-- [ ] Hisse arama / secme akisini backend aramasi ile uyumlu hale getir
-- [ ] Loading, empty state ve error state'leri goster
+- [x] `GET /api/stocks` - List stocks with search filter
+- [x] `GET /api/stocks/{symbol}` - Stock detail endpoint
+- [x] `GET /api/stocks/{symbol}/prices` - Price history endpoint
+- [ ] `GET /api/stocks/{symbol}/metrics` - Deferred to Task 4.x (requires stock_metrics table)
+- [x] `backend/app/schemas/stock.py` - Added PriceBarResponse, PriceHistoryResponse, StockDetailResponse, StockListResponse
+- [x] `backend/app/services/stock_service.py` - Service layer with get_all_stocks, get_stock_by_symbol, get_price_history
+- [x] `backend/app/routers/stocks.py` - 3 endpoints with auth protection
+- [x] `backend/scripts/seed_stocks.py` - Seed BIST stocks + backfill prices
+- [x] `frontend/js/stockApi.js` - Stock API functions
+- [x] `frontend/js/dashboard.js` - Real API connection with Chart.js
+- [x] `frontend/dashboard.html` - Stock search input + chart canvas
+- [x] `frontend/package.json` - Added Chart.js dependency
+- [x] Unit tests: `tests/unit/test_stock_service.py` (14 tests)
+- [x] Integration tests: `tests/integration/test_stocks_api.py` (16 tests)
+- [x] Total: 30 tests passing
 
 ---
 

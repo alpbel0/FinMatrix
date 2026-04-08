@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app.database import check_database_connection
 from app.routers.auth import router as auth_router
+from app.routers.stocks import router as stocks_router
 from app.services.utils.logging import logger
 
 settings = get_settings()
@@ -19,6 +20,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+app.include_router(stocks_router)
 
 
 @app.get("/health")
