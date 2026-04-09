@@ -7,6 +7,7 @@ from app.models.income_statement import IncomeStatement
 from app.models.kap_report import KapReport
 from app.models.news import News, UserNews
 from app.models.pipeline_log import PipelineLog
+from app.models.scheduler_setting import SchedulerSetting
 from app.models.stock import Stock
 from app.models.stock_price import StockPrice
 from app.models.user import TelegramSettings, User

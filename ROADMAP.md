@@ -580,15 +580,28 @@ FinMatrix/
 ### Task 4.4: Scheduled Sync Jobs
 
 **Tahmini Sure:** 3 saat
-**Durum:** Planned
+**Durum:** ✅ Completed
 
-- [ ] `services/pipeline/scheduler.py` olustur
-- [ ] Job 1: Fiyat guncelleme - her 15 dakikada
-- [ ] Job 2: Finansal tablo guncelleme - gunde 1 kez
-- [ ] Job 3: KAP bildirim kontrolu - her 30 dakikada
-- [ ] Job 4: PENDING chunk'lari embed et - her 10 dakikada
-- [ ] Her is icin `pipeline_logs` tablosuna kayit yaz
-- [ ] BIST is saatlerine gore fiyat sync kosulu ekle
+- [x] `services/pipeline/scheduler.py` olustur - APScheduler AsyncIOScheduler
+- [x] `services/pipeline/market_hours.py` olustur - BIST islem saat kontrolu
+- [x] `services/pipeline/job_policy.py` olustur - universe selection logic
+- [x] `services/data/providers/bist_index_provider.py` - BIST100 adapter
+- [x] Job 1: Fiyat guncelleme - her 15 dakikada, sadece BIST is saatlerinde
+- [x] Job 2a: Finansal tablo weekly - her Pazartesi 06:00
+- [x] Job 2b: Finansal tablo reporting - 4 saatte 1 (reporting mode aktifken)
+- [x] Job 3: KAP hourly - BIST100 icin saatlik
+- [x] Job 4: KAP watchlist daily - her gun 21:00
+- [x] Job 5: KAP slow - 3 gunde 1, watchlist ve BIST100 disindaki hisseler
+- [x] Job 6: PENDING chunk'lari embed et - Week 5'e ertelendi
+- [x] Her is icin `pipeline_logs` tablosuna kayit yaz
+- [x] BIST is saatlerine gore fiyat sync kosulu ekle
+- [x] Scheduler icin job policy / universe secimi tanimla (`BIST100`, `watchlist`, `slow`, `all`)
+- [x] `models/scheduler_setting.py` - Financial reporting mode DB config
+- [x] Finansal tablo reporting mode kontrolu (7 gun otomatik expiry)
+- [x] Admin endpoint'ler: GET status, POST financial-reporting-mode, POST run/prices, POST run/financials, POST run/kap
+- [x] `main.py` lifespan context manager ile scheduler lifecycle
+- [x] Unit tests: test_market_hours.py, test_job_policy.py, test_bist_index_provider.py
+- [x] `schemas/scheduler.py` - Admin endpoint request/response schemas
 
 ### Task 4.5: Mocklar ve Testler
 
