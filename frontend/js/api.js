@@ -55,3 +55,31 @@ export async function apiFetch(path, options = {}) {
 
   return data;
 }
+
+// ============================================================================
+// Chat API
+// ============================================================================
+
+export async function getChatSessions() {
+  return apiFetch("/api/chat/sessions");
+}
+
+export async function createChatSession(title = null) {
+  return apiFetch("/api/chat/sessions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title }),
+  });
+}
+
+export async function getSessionMessages(sessionId) {
+  return apiFetch(`/api/chat/sessions/${sessionId}/messages`);
+}
+
+export async function sendChatMessage(sessionId, message) {
+  return apiFetch("/api/chat/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session_id: sessionId, message }),
+  });
+}

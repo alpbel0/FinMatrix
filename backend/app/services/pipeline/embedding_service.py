@@ -148,6 +148,7 @@ def _build_chunk_metadata(
         "report_title": kap_report.title[:500] if kap_report.title else "",
         "published_at": kap_report.published_at.isoformat() if kap_report.published_at else None,
         "filing_type": kap_report.filing_type or "",
+        "source_url": kap_report.source_url or "",
         "chunk_index": chunk.chunk_index,
         "kap_report_id": kap_report.id,
         "chunk_text_hash": chunk.chunk_text_hash or "",

@@ -725,28 +725,41 @@ FinMatrix/
 - [x] Dedup by chunk_text_hash
 - [x] Unit tests: 17 tests passing
 
-### Task 5.5: CrewAI Text Analysis Agent
+### Task 5.5: Query Understanding + Retrieval + Response Agent Layer
 
-**Tahmini Sure:** 4 saat
-**Durum:** Planned
+**Tahmini Sure:** 5 saat
+**Durum:** Completed
 
-- [ ] `agents/text_analyst.py` olustur
-- [ ] Role: Financial Text Analyst
-- [ ] Goal: KAP raporlarindan sirket analizi cikarmak
-- [ ] RAG context + user query -> structured analysis
-- [ ] Cikis formati: ozet, riskler, firsatlar, kaynaklar
-- [ ] Türkce promptlari optimize et
+- [x] `schemas/enums.py` olustur - DocumentType, QueryIntent enums
+- [x] `config.py` - LLM model settings (query_understanding_model, response_agent_model)
+- [x] `services/agents/symbol_resolver.py` - DB lookup + alias fallback
+- [x] `services/agents/prompt_loader.py` - YAML prompt loader
+- [x] `prompts/query_understanding.yaml` - Query analysis prompt
+- [x] `services/agents/query_understanding_agent.py` - Intent/symbol extraction
+- [x] `services/agents/retrieval_agent.py` - Deterministic retrieval wrapper
+- [x] `prompts/response_agent.yaml` - Response generation prompt
+- [x] `services/agents/response_agent.py` - Turkish response with citations
+- [x] `services/chat_rag_service.py` - Pipeline orchestration
+- [x] Multi-factor sufficiency check (distance + length + count)
+- [x] Soft fallback for insufficient context
+- [x] Greeting handling (belge odaklı yönlendirme)
+- [x] Unit tests: 87 tests passing
+- Models: query_understanding=gemma-4-26b, response=gemini-3.1-flash-lite
 
 ### Task 5.6: Chat Frontend Ilk Entegrasyon
 
 **Tahmini Sure:** 3 saat
-**Durum:** Planned
+**Durum:** Completed
 
-- [ ] `frontend/js/chat.js` icinde session akisini netlestir
-- [ ] Mesaj gonderme formunu backend message endpoint'ine bagla
-- [ ] Source panel iskeletini hazirla
-- [ ] "loading / streaming / source yok" durumlarini goster
-- [ ] Ilk duz cevap akisini SSE olmadan calistir
+- [x] `services/chat_service.py` - Session/message management
+- [x] `routers/chat.py` - API endpoints (GET/POST sessions, POST messages)
+- [x] `models/chat.py` - sources_metadata JSONB field
+- [x] `alembic/versions/a1b2c3d4e5f7_add_sources_metadata_to_chat_messages.py`
+- [x] `frontend/js/api.js` - Chat API functions (getChatSessions, createChatSession, sendChatMessage)
+- [x] `frontend/js/chat.js` - Real API connection, source panel rendering
+- [x] `frontend/chat.html` - Source cards UI, loading state
+- [x] Chat session creation + message persistence
+- [x] Source transparency in frontend
 
 ---
 

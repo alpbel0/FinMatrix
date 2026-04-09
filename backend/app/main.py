@@ -10,6 +10,7 @@ from app.routers.stocks import router as stocks_router
 from app.routers.watchlist import router as watchlist_router
 from app.routers.news import router as news_router
 from app.routers.admin import router as admin_router
+from app.routers.chat import router as chat_router
 from app.services.pipeline.scheduler import start_scheduler, stop_scheduler
 from app.services.utils.logging import logger
 
@@ -52,6 +53,7 @@ app.include_router(stocks_router)
 app.include_router(watchlist_router)
 app.include_router(news_router)
 app.include_router(admin_router)
+app.include_router(chat_router)
 
 
 @app.get("/health")

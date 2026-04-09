@@ -39,6 +39,24 @@ class Settings(BaseSettings):
     embedding_max_per_run: int = 500  # Max chunks to embed per scheduler run
     chroma_collection_name: str = "kap_documents"
 
+    # LLM Settings for Agents
+    query_understanding_model: str = "google/gemma-4-26b-a4b-it:free"
+    query_rewrite_model: str = "google/gemma-4-26b-a4b-it:free"  # Same model, optional usage
+    response_agent_model: str = "google/gemini-3.1-flash-lite-preview"
+    llm_timeout: float = 60.0
+    llm_max_tokens: int = 2048
+    llm_temperature: float = 0.7
+    chat_memory_window: int = 5  # Last N messages for context
+
+    # Retrieval sufficiency criteria (multi-factor)
+    min_chunks_for_context: int = 1  # At least 1 chunk
+    max_chunk_distance: float = 0.7  # L2 distance threshold (lower = better match)
+    # IMPORTANT: L2 distance'te düşük değer daha iyi. max_chunk_distance üst sınır.
+    min_total_context_chars: int = 500  # Minimum total content length
+
+    # Query rewrite settings
+    enable_query_rewrite: bool = False  # Default: disabled, truly optional
+
 
 @lru_cache
 def get_settings() -> Settings:
