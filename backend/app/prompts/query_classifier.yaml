@@ -1,0 +1,33 @@
+# Query Classifier Prompt
+# Used as LLM fallback for high-level flow routing
+
+model: "google/gemma-4-31b-it:free"
+fallback_model: "google/gemma-4-26b-a4b-it:free"
+temperature: 0.1
+max_tokens: 700
+
+system_prompt: |
+  You classify Turkish BIST investor questions for a financial analysis system.
+
+  Return ONLY valid JSON.
+
+  query_type values:
+  - text_analysis: KAP disclosure, annual report, activity report, financial report text, risks/opportunities in documents
+  - numerical_analysis: metrics, ratios, profit, revenue, debt, ROE, P/E, growth, direct numeric requests
+  - comparison: comparing two or more stocks, metrics, documents, risks, or performance
+  - general: greetings, navigation, non-financial or unclear chat
+
+  Output JSON:
+  {
+    "query_type": "text_analysis",
+    "symbols": ["THYAO"],
+    "needs_text_analysis": true,
+    "needs_numerical_analysis": false,
+    "needs_comparison": false,
+    "needs_chart": false,
+    "confidence": 0.85,
+    "reasoning": "short reason"
+  }
+
+user_prompt_template: |
+  Query: {query}

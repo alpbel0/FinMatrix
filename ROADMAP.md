@@ -780,87 +780,151 @@ FinMatrix/
 
 ---
 
-## Week 6: Numerical Agent, Orchestrator ve Chat UX Derinlestirme
+## Week 6: CrewAI Orchestration, Numerical Analysis ve Chat UX Derinlestirme
 
 **Tarih:** ___________
-**Hedef:** Sayisal analiz ve agent birlestirme katmanini kurmak
+**Hedef:** CrewAI tabanli agent koordinasyonunu kurmak, sayisal analiz akisini eklemek ve chat deneyimini daha analist seviyesine tasimak
 **Durum:** Planned
 
-### Task 6.1: Query Classifier
+### Week 6 Mimari Karari: Hibrit CrewAI
+
+Bu hafta itibariyla agent orchestration katmani CrewAI ile kurulacak. Ancak tum is mantigi CrewAI icine gomulmeyecek.
+
+**CrewAI olacak katmanlar:**
+- [ ] Query classifier agent
+- [ ] Text analyst agent
+- [ ] Code executor agent
+- [ ] Results merger agent
+- [ ] Orchestrator / crew wiring
+
+**Custom kalacak katmanlar:**
+- [ ] Retrieval servisleri (`rag/retriever.py`, `services/agents/retrieval_agent.py`)
+- [ ] Symbol resolution ve enum normalization
+- [ ] Deterministic finansal hesaplar ve metric helper'lari
+- [ ] Chart data generation
+- [ ] DB yazimlari, API response schema'lari ve trace logging
+- [ ] Frontend render mantigi
+
+**Temel ilke:**
+- [ ] LLM agent karar verir, custom kod icra eder
+- [ ] Sayisal hesaplar LLM'e birakilmaz
+- [ ] Retrieval ve persistence framework bagimsiz kalir
+
+### Task 6.1: CrewAI Query Classifier
 
 **Tahmini Sure:** 2 saat
-**Durum:** Planned
+**Durum:** Completed
 
-- [ ] `agents/query_classifier.py` olustur
-- [ ] Query type siniflari:
-- [ ] text_analysis
-- [ ] numerical_analysis
-- [ ] comparison
-- [ ] general
-- [ ] Testler yaz
+- [x] `services/agents/query_classifier.py` dosyasini CrewAI uyumlu hale getir
+- [x] Query type siniflarini netlestir:
+- [x] `text_analysis`
+- [x] `numerical_analysis`
+- [x] `comparison`
+- [x] `general`
+- [x] Classifier output'unu structured schema ile sabitle
+- [x] Orchestrator'a karar verebilir sinyaller ekle:
+- [x] symbol list
+- [x] comparison flag
+- [x] chart_needed flag
+- [x] Heuristic-first classification ekle
+- [x] OpenRouter LLM fallback ekle
+- [x] CrewAI adapter / agent role boundary ekle
+- [x] Testler yaz
 
-### Task 6.2: AutoGen Code Executor Agent
+### Task 6.2: CrewAI Text Analyst Agent
+
+**Tahmini Sure:** 3 saat
+**Durum:** Completed
+
+- [x] `services/agents/text_analyst.py` dosyasini CrewAI uyumlu role wrapper olarak kur
+- [x] Mevcut RAG retrieval katmanini tool/service olarak kullan
+- [x] Kaynakli text analysis uret
+- [x] Risk/firsat/ozet sorularinda belge tabanli analiz ver
+- [x] Retrieval sonucu ve source metadata'yi structured output olarak don
+- [x] Fallback: retrieval bos veya zayifsa hallucination yerine soft failure don
+- [x] TextAnalysisResult schema ekle
+- [x] Unit testler yaz
+- [x] Canli THYAO smoke testi yap
+
+### Task 6.3: CrewAI Code Executor Agent
 
 **Tahmini Sure:** 4 saat
 **Durum:** Planned
 
-- [ ] `agents/code_executor.py` olustur
+- [ ] `services/agents/code_executor.py` olustur
+- [ ] Agent'in rolunu "deterministic calculators'i cagiran karar katmani" olarak tasarla
 - [ ] Sayisal veri icin `borsapy` + DB yuzeyini kullan
-- [ ] Chart generation akisini yaz
-- [ ] Metric hesaplamalari:
+- [ ] Deterministic metric helper'lari yaz / bagla:
 - [ ] Net profit growth
-- [ ] P/E karsilastirma
+- [ ] P/E comparison
 - [ ] Debt/Equity
 - [ ] ROE
-- [ ] Timeout ve sandbox sinirlari ekle
-- [ ] Test: THYAO vs ASELS net kar karsilastirmasi
+- [ ] Chart data generation akisini ekle
+- [ ] Timeout ve sandbox sinirlari belirle
+- [ ] Test: `THYAO vs ASELS net kar` karsilastirmasi
 
-### Task 6.3: Results Merger
+### Task 6.4: CrewAI Results Merger
 
 **Tahmini Sure:** 2 saat
 **Durum:** Planned
 
-- [ ] `agents/merger.py` olustur
+- [ ] `services/agents/merger.py` olustur
 - [ ] Text agent + numerical agent ciktilarini birlestir
-- [ ] Chart varsa response'a ekle
 - [ ] Source referanslarini deduplicate et
-- [ ] Comparison tablosu olustur
-- [ ] Suggested questionlar uret
+- [ ] Comparison table payload'i hazirla
+- [ ] Chart varsa final response schema'sina ekle
+- [ ] Suggested questions uret
+- [ ] Final output'u frontend dostu structured response'a cevir
 
-### Task 6.4: Orchestrator
+### Task 6.5: CrewAI Orchestrator
 
 **Tahmini Sure:** 3 saat
 **Durum:** Planned
 
-- [ ] `agents/orchestrator.py` olustur
+- [ ] `services/agents/orchestrator.py` olustur
+- [ ] CrewAI crew/task wiring kur
 - [ ] Akis:
 - [ ] Query classify
-- [ ] Gereken agentlari calistir
-- [ ] Sonuclari birlestir
-- [ ] Judge'e gonder
-- [ ] Son cevabi dondur
+- [ ] Gerekli agentlari sec
+- [ ] Text ve/veya numerical flow'u calistir
+- [ ] Sonuclari merger'a ver
+- [ ] Final cevabi dondur
+- [ ] Judge entegrasyonu icin hook birak, ama judge'i Week 8 scope'unda tut
+- [ ] Chat service'i bu orchestrator'a bagla
 
-### Task 6.5: Agent Unit Tests
+### Task 6.6: Agent Tests ve Mock Katmani
 
 **Tahmini Sure:** 3 saat
 **Durum:** Planned
 
 - [ ] `tests/mocks/mock_openrouter.py`
-- [ ] `tests/mocks/mock_langgraph.py`
+- [ ] `tests/mocks/mock_crewai.py`
 - [ ] `tests/unit/test_query_classifier.py`
-- [ ] `tests/unit/test_rag_retriever.py`
-- [ ] `tests/unit/test_judge.py`
+- [ ] `tests/unit/test_text_analyst.py`
+- [ ] `tests/unit/test_code_executor.py`
+- [ ] `tests/unit/test_merger.py`
+- [ ] `tests/unit/test_orchestrator.py`
+- [ ] Agent trace/log ciktisini test et
 
-### Task 6.6: Chat UX ve Inline Chart
+### Task 6.7: Chat UX ve Inline Chart
 
 **Tahmini Sure:** 3 saat
 **Durum:** Planned
 
 - [ ] Chat cevabindaki chart alanini frontend'de render et
 - [ ] Source transparency UI'sini son sekline yaklastir
-- [ ] Suggested question alanini ekle
+- [ ] Suggested questions alanini ekle
 - [ ] Comparison table varsa sag panel veya inline goster
-- [ ] Chat gecmisinin temel UI akisini tamamla
+- [ ] Chat gecmisinin temel UX akisini tamamla
+- [ ] Numerical/text/comparison cevap tipleri icin uygun render farklarini ekle
+
+### Week 6 Sonunda Beklenen Cikti
+
+- [ ] Chat artik sadece belge cevabi degil, soru tipine gore agent secen bir sisteme donusmus olacak
+- [ ] Sayisal sorular deterministic hesaplarla cevaplanacak
+- [ ] Karsilastirma sorulari tek cevapta analiz + tablo + chart ile donulebilecek
+- [ ] CrewAI, agent koordinasyon katmaninda aktif olarak kullaniliyor olacak
+- [ ] Retrieval, DB, trace ve chart payload katmanlari halen custom ve debug edilebilir kalacak
 
 ---
 

@@ -15,7 +15,7 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
-from app.schemas.enums import DocumentType, QueryIntent
+from app.schemas.enums import DocumentType, QueryIntent, QueryType
 
 
 # ============================================================================
@@ -138,3 +138,34 @@ class RAGResponse(BaseModel):
     document_type: DocumentType = DocumentType.ANY
     confidence_note: str | None = None
     insufficient_context: bool = False
+
+
+# ============================================================================
+# CrewAI Agent Layer Schemas
+# ============================================================================
+
+
+class QueryClassificationResult(BaseModel):
+    """High-level query classification result for orchestration."""
+
+    query_type: QueryType
+    symbols: list[str] = []
+    needs_text_analysis: bool = False
+    needs_numerical_analysis: bool = False
+    needs_comparison: bool = False
+    needs_chart: bool = False
+    confidence: float = 0.0
+    reasoning: str | None = None
+
+
+class TextAnalysisResult(BaseModel):
+    """Text analyst output built from the existing RAG text flow."""
+
+    answer_text: str
+    key_points: list[str] = []
+    sources: list[SourceItem] = []
+    stock_symbol: str | None = None
+    document_type: DocumentType = DocumentType.ANY
+    insufficient_context: bool = False
+    confidence_note: str | None = None
+    retrieval_confidence: float = 0.0

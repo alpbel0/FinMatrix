@@ -8,6 +8,7 @@ This module contains agents for the chat RAG system:
 """
 
 from app.services.agents.query_understanding_agent import analyze_query, is_greeting
+from app.services.agents.query_classifier import classify_query, classify_query_heuristic
 from app.services.agents.retrieval_agent import check_sufficient_context, prepare_source_items, run_retrieval
 from app.services.agents.response_agent import generate_response
 from app.services.agents.symbol_resolver import HARDCODED_ALIAS_MAP, normalize_symbol_input, resolve_symbol
@@ -16,6 +17,9 @@ __all__ = [
     # Query Understanding
     "analyze_query",
     "is_greeting",
+    # Query Classifier
+    "classify_query",
+    "classify_query_heuristic",
     # Symbol Resolver
     "resolve_symbol",
     "normalize_symbol_input",

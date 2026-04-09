@@ -45,3 +45,12 @@ class QueryIntent(str, Enum):
     OPPORTUNITY = "opportunity"
     METRIC = "metric"
     GENERIC = "generic"
+
+
+class QueryType(str, Enum):
+    """High-level chat flow type for CrewAI orchestration."""
+
+    TEXT_ANALYSIS = "text_analysis"
+    NUMERICAL_ANALYSIS = "numerical_analysis"
+    COMPARISON = "comparison"
+    GENERAL = "general"

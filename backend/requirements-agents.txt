@@ -1,0 +1,9 @@
+# Optional agent-orchestration layer.
+#
+# Install main requirements first.
+# Then install this file with:
+#   python -m pip install --no-deps -r requirements-agents.txt
+# CrewAI is currently installed with --no-deps in dev because its transitive
+# chromadb pin conflicts with FinMatrix's ChromaDB 1.5.x server/client setup.
+
+crewai==1.14.1

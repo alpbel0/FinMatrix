@@ -43,6 +43,8 @@ class Settings(BaseSettings):
     query_understanding_model: str = "google/gemma-4-26b-a4b-it:free"
     query_rewrite_model: str = "google/gemma-4-26b-a4b-it:free"  # Same model, optional usage
     response_agent_model: str = "google/gemini-3.1-flash-lite-preview"
+    query_classifier_model: str = "google/gemma-4-31b-it:free"
+    query_classifier_fallback_model: str = "google/gemma-4-26b-a4b-it:free"
     llm_timeout: float = 60.0
     llm_max_tokens: int = 2048
     llm_temperature: float = 0.7
