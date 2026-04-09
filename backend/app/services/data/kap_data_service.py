@@ -196,6 +196,12 @@ async def sync_kap_filings(
             # Upsert to database
             count = await upsert_kap_filings(db, symbol, filings_to_upsert)
 
+            # Transform to News entries
+            from app.services.news_service import batch_transform_kap_to_news
+            news_count = await batch_transform_kap_to_news(db, symbol)
+            if news_count > 0:
+                logger.info(f"Transformed {news_count} KAP filings to News for {symbol}")
+
             duration = (datetime.now(timezone.utc) - start_time).total_seconds()
             logger.info(f"Synced {count} KAP filings for {symbol} in {duration:.2f}s")
 

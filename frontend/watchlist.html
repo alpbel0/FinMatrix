@@ -20,7 +20,20 @@
       </nav>
       <div class="muted" data-auth-state>Guest</div>
     </header>
-    <section class="page-header"><h1>Watchlist</h1><p class="muted">Week 1 mock cards for tracked BIST stocks.</p></section>
+    <section class="page-header">
+      <h1>Watchlist</h1>
+      <p class="muted">Track your stocks and manage notification preferences.</p>
+    </section>
+    <section class="card">
+      <form id="watchlist-form">
+        <label for="watchlist-symbol" class="muted">Add stock by symbol</label>
+        <div class="form-row">
+          <input id="watchlist-symbol" name="symbol" type="text" placeholder="THYAO" autocomplete="off" required>
+          <button class="button primary" type="submit">Add</button>
+        </div>
+        <p class="muted" id="watchlist-feedback" aria-live="polite"></p>
+      </form>
+    </section>
     <section class="grid three" id="watchlist-root"></section>
   </div>
   <script type="module" src="/js/watchlist-main.js"></script>

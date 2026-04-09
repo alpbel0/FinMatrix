@@ -489,3 +489,66 @@ def create_kap_filings_batch(
         ))
 
     return filings
+
+
+# --- User/Auth Helpers for Integration Tests ---
+
+async def create_user_in_db(
+    db_session,
+    username: str = "testuser",
+    email: str | None = None,
+    password: str = "testpass123",
+    is_admin: bool = False,
+) -> "User":
+    """
+    Create a User record in the database for integration tests.
+
+    Args:
+        db_session: AsyncSession instance
+        username: Username
+        email: Email (defaults to username@example.com)
+        password: Plain text password (will be hashed)
+        is_admin: Admin flag
+
+    Returns:
+        User model instance
+    """
+    from app.models.user import User
+    from app.services.auth_service import hash_password
+
+    if email is None:
+        email = f"{username}@example.com"
+
+    user = User(
+        username=username,
+        email=email,
+        password_hash=hash_password(password),
+        is_admin=is_admin,
+    )
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
+
+
+async def get_auth_headers(client, username: str, password: str = "testpass123") -> dict[str, str]:
+    """
+    Get authentication headers by logging in.
+
+    Args:
+        client: AsyncClient instance
+        username: Username to login with (email will be derived)
+        password: Password (must match create_user_in_db password)
+
+    Returns:
+        Dict with Authorization header
+    """
+    # Derive email from username (matches create_user_in_db pattern)
+    email = f"{username}@example.com"
+    response = await client.post(
+        "/api/auth/login",
+        json={"email": email, "password": password},
+    )
+    assert response.status_code == 200, f"Login failed: {response.json()}"
+    token = response.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}

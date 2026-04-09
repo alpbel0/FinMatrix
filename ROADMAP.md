@@ -617,28 +617,41 @@ FinMatrix/
 ### Task 4.6: Watchlist Slice
 
 **Tahmini Sure:** 3 saat
-**Durum:** Planned
+**Durum:** ✅ Completed
 
-- [ ] `GET /api/watchlist`
-- [ ] `POST /api/watchlist`
-- [ ] `DELETE /api/watchlist/{id}`
-- [ ] `PATCH /api/watchlist/{id}/notifications`
-- [ ] `frontend/js/watchlist.js` icinde kartlari API ile besle
-- [ ] Sparkline ya da mini fiyat ozetlerini backend verisine bagla
-- [ ] Watchlist add/remove ve toggle akisini gercek endpoint'lerle calistir
+- [x] `GET /api/watchlist` - List user's watchlist with price snapshot
+- [x] `POST /api/watchlist` - Add stock to watchlist (by symbol)
+- [x] `DELETE /api/watchlist/{id}` - Remove from watchlist
+- [x] `PATCH /api/watchlist/{id}/notifications` - Toggle notifications
+- [x] `frontend/js/watchlist.js` - Real API connection with price snapshot
+- [x] `backend/app/schemas/watchlist.py` - Request/response schemas
+- [x] `backend/app/services/watchlist_service.py` - CRUD functions
+- [x] `backend/app/routers/watchlist.py` - 4 endpoints implemented
+- [x] Unit tests: `tests/unit/test_watchlist_service.py` (15 tests)
+- [x] Integration tests: `tests/integration/test_watchlist_api.py` (11 tests)
+- [x] Total: 26 tests passing
 
 ### Task 4.7: News Feed Slice
 
 **Tahmini Sure:** 3 saat
-**Durum:** Planned
+**Durum:** ✅ Completed
 
-- [ ] KAP filing -> news kaydi donusumu yaz
-- [ ] `GET /api/news`
-- [ ] `GET /api/news/{id}`
-- [ ] `POST /api/news/{id}/read`
-- [ ] `frontend/js/news.js` icinde kategori filtrelerini API ile bagla
-- [ ] All / KAP Filings / Activity / Financial filtrelerini calistir
-- [ ] Watchlist ile ilgili news vurgusunu UI'da goster
+- [x] KAP filing -> news kaydi donusumu (`transform_kap_to_news`)
+- [x] `backend/alembic/versions/e5f6a7b8c9d0_*.py` - Migration for source_type, source_id, filing_type
+- [x] `backend/app/models/news.py` - Added 3 fields + unique constraint
+- [x] `GET /api/news` - News feed with category filter
+- [x] `GET /api/news/{id}` - News detail
+- [x] `POST /api/news/{id}/read` - Mark read/unread
+- [x] `frontend/js/news.js` - Category filters (all/financial/activity/kap)
+- [x] `frontend/js/news-main.js` - Entry point
+- [x] `frontend/index.html` - News root section
+- [x] `backend/app/schemas/news.py` - Request/response schemas
+- [x] `backend/app/services/news_service.py` - Transform + feed functions
+- [x] `backend/app/routers/news.py` - 3 endpoints implemented
+- [x] `backend/app/services/data/kap_data_service.py` - Transform hook after sync
+- [x] Unit tests: `tests/unit/test_news_service.py` (19 tests)
+- [x] Integration tests: `tests/integration/test_news_api.py` (10 tests)
+- [x] Total: 29 tests passing
 
 ---
 

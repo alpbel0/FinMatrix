@@ -7,6 +7,8 @@ from app.config import get_settings
 from app.database import check_database_connection
 from app.routers.auth import router as auth_router
 from app.routers.stocks import router as stocks_router
+from app.routers.watchlist import router as watchlist_router
+from app.routers.news import router as news_router
 from app.routers.admin import router as admin_router
 from app.services.pipeline.scheduler import start_scheduler, stop_scheduler
 from app.services.utils.logging import logger
@@ -47,6 +49,8 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(stocks_router)
+app.include_router(watchlist_router)
+app.include_router(news_router)
 app.include_router(admin_router)
 
 
