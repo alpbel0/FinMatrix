@@ -91,6 +91,17 @@ class PdfBatchDownloadResult(BaseModel):
     details: dict[str, Any] | None = None
 
 
+class PdfBackfillResult(BaseModel):
+    """Result of syncing existing on-disk PDFs back into KapReport state."""
+
+    total_checked: int
+    matched: int
+    updated: int
+    missing: int
+    skipped_symbol_mismatch: int = 0
+    details: dict[str, Any] | None = None
+
+
 # ============================================================================
 # Helper Functions
 # ============================================================================
@@ -206,6 +217,30 @@ def _is_retry_eligible(error_message: str) -> bool:
         True if the error is retry-eligible, False otherwise.
     """
     return any(pattern in error_message for pattern in RETRY_ELIGIBLE_PATTERNS)
+
+
+def _index_local_pdfs(storage_base: Path) -> dict[str, tuple[str, int, datetime]]:
+    """Index downloaded PDFs by disclosure index.
+
+    Returns:
+        disclosure_index -> (relative_path, file_size, downloaded_at)
+    """
+    indexed: dict[str, tuple[str, int, datetime]] = {}
+    if not storage_base.exists():
+        return indexed
+
+    for pdf_path in storage_base.rglob("*.pdf"):
+        disclosure_index = pdf_path.stem
+        try:
+            stat = pdf_path.stat()
+        except OSError:
+            continue
+
+        relative_path = pdf_path.relative_to(storage_base).as_posix()
+        downloaded_at = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)
+        indexed[disclosure_index] = (relative_path, stat.st_size, downloaded_at)
+
+    return indexed
 
 
 # ============================================================================
@@ -623,3 +658,88 @@ async def get_download_statistics(db: AsyncSession) -> dict[str, int]:
             stats[row.pdf_download_status] = row.count
 
     return stats
+
+
+async def backfill_downloaded_pdfs_from_storage(
+    db: AsyncSession,
+    storage_base: Path | None = None,
+) -> PdfBackfillResult:
+    """Backfill KapReport download state from PDFs already present on disk."""
+    settings = get_settings()
+    storage_base = storage_base or Path(settings.pdf_storage_path)
+    pdf_index = _index_local_pdfs(storage_base)
+
+    result = await db.execute(select(KapReport))
+    kap_reports = list(result.scalars().all())
+
+    matched = 0
+    updated = 0
+    missing = 0
+    skipped_symbol_mismatch = 0
+
+    for kap_report in kap_reports:
+        disclosure_index = _parse_disclosure_index(kap_report.pdf_url or "")
+        if not disclosure_index:
+            missing += 1
+            continue
+
+        indexed_pdf = pdf_index.get(disclosure_index)
+        if not indexed_pdf:
+            missing += 1
+            continue
+
+        matched += 1
+        relative_path, file_size, downloaded_at = indexed_pdf
+
+        expected_symbol = ""
+        stock = getattr(kap_report, "stock", None)
+        if stock and stock.symbol:
+            expected_symbol = stock.symbol.upper()
+        elif kap_report.stock_id is not None:
+            stock_result = await db.execute(
+                select(Stock.symbol).where(Stock.id == kap_report.stock_id)
+            )
+            expected_symbol = (stock_result.scalar_one_or_none() or "").upper()
+
+        actual_symbol = Path(relative_path).parts[0].upper() if Path(relative_path).parts else ""
+        if expected_symbol and actual_symbol and expected_symbol != actual_symbol:
+            skipped_symbol_mismatch += 1
+            logger.warning(
+                "PDF backfill symbol mismatch for KapReport %s: expected=%s actual=%s path=%s",
+                kap_report.id,
+                expected_symbol,
+                actual_symbol,
+                relative_path,
+            )
+            continue
+
+        changed = False
+        if kap_report.local_pdf_path != relative_path:
+            kap_report.local_pdf_path = relative_path
+            changed = True
+        if kap_report.pdf_download_status != PdfDownloadStatus.COMPLETED.value:
+            kap_report.pdf_download_status = PdfDownloadStatus.COMPLETED.value
+            changed = True
+        if kap_report.pdf_file_size != file_size:
+            kap_report.pdf_file_size = file_size
+            changed = True
+        if kap_report.pdf_downloaded_at is None:
+            kap_report.pdf_downloaded_at = downloaded_at
+            changed = True
+        if kap_report.pdf_download_error is not None:
+            kap_report.pdf_download_error = None
+            changed = True
+
+        if changed:
+            updated += 1
+
+    await db.commit()
+
+    return PdfBackfillResult(
+        total_checked=len(kap_reports),
+        matched=matched,
+        updated=updated,
+        missing=missing,
+        skipped_symbol_mismatch=skipped_symbol_mismatch,
+        details={"storage_base": str(storage_base)},
+    )

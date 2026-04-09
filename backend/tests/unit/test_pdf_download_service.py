@@ -24,6 +24,7 @@ from app.services.data.pdf_download_service import (
     download_single_pdf,
     batch_download_pending_pdfs,
     batch_retry_failed_downloads,
+    backfill_downloaded_pdfs_from_storage,
     PdfDownloadStatus,
     PdfDownloadResult,
     PdfBatchDownloadResult,
@@ -354,3 +355,59 @@ class TestBatchRetryFailedDownloads:
 
         assert result.total_processed == 0
         assert result.status == "success"
+
+
+class TestBackfillDownloadedPdfs:
+    """Tests for syncing on-disk PDFs back into KapReport state."""
+
+    @pytest.mark.asyncio
+    async def test_backfill_updates_matching_report(self, db_session):
+        from app.models.kap_report import KapReport
+        from app.models.stock import Stock
+
+        stock = Stock(
+            symbol="THYAO",
+            company_name="Turkish Airlines",
+            sector="Airlines",
+            exchange="BIST",
+            is_active=True,
+        )
+        db_session.add(stock)
+        await db_session.flush()
+
+        report = KapReport(
+            stock_id=stock.id,
+            title="THYAO Finansal Rapor 2024",
+            filing_type="FR",
+            pdf_url="https://www.kap.org.tr/tr/api/BildirimPdf/1076581",
+            source_url="https://www.kap.org.tr/tr/Bildirim/1076581",
+            sync_status="COMPLETED",
+            pdf_download_status=PdfDownloadStatus.PENDING.value,
+        )
+        db_session.add(report)
+        await db_session.commit()
+
+        storage_base = Path("C:/tmp/test-pdfs")
+        file_path = storage_base / "THYAO" / "2024" / "1076581.pdf"
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.write_bytes(b"%PDF-1.4" + b"0" * 2048)
+
+        try:
+            result = await backfill_downloaded_pdfs_from_storage(db_session, storage_base=storage_base)
+            await db_session.refresh(report)
+
+            assert result.matched == 1
+            assert result.updated == 1
+            assert report.local_pdf_path == "THYAO/2024/1076581.pdf"
+            assert report.pdf_download_status == PdfDownloadStatus.COMPLETED.value
+            assert report.pdf_file_size == file_path.stat().st_size
+            assert report.pdf_download_error is None
+        finally:
+            if file_path.exists():
+                file_path.unlink()
+            if file_path.parent.exists():
+                file_path.parent.rmdir()
+            if file_path.parent.parent.exists():
+                file_path.parent.parent.rmdir()
+            if storage_base.exists():
+                storage_base.rmdir()

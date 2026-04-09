@@ -31,6 +31,10 @@ class KapReport(Base):
     pdf_file_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
     pdf_downloaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     pdf_download_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Chunking tracking fields
+    chunking_status: Mapped[str] = mapped_column(String(50), default="PENDING", nullable=False)
+    chunking_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    chunked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     stock: Mapped["Stock | None"] = relationship(lazy="selectin")
 

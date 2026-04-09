@@ -680,40 +680,50 @@ FinMatrix/
 ### Task 5.2: PDF Text Extraction ve Chunking
 
 **Tahmini Sure:** 4 saat
-**Durum:** Planned
+**Durum:** Completed
 
-- [ ] `chunking_service.py` olustur
-- [ ] PDF -> text extraction yaz
-- [ ] Turkce karakterleri dogrula
-- [ ] Chunk size: ~500 token
-- [ ] Overlap: ~50 token
-- [ ] Paragraf sinirina duyarli bolme mantigi yaz
-- [ ] Hash hesapla
-- [ ] `document_chunks` tablosuna yaz
+- [x] `chunking_service.py` olustur
+- [x] PDF -> text extraction yaz (pdfplumber)
+- [x] Turkce karakterleri dogrula
+- [x] Chunk size: ~500 token
+- [x] Overlap: ~50 token
+- [x] Paragraf sinirina duyarli bolme mantigi yaz
+- [x] Hash hesapla (SHA-256)
+- [x] `document_chunks` tablosuna yaz
+- [x] Boilerplate filtering (cover page, TOC, short blocks, low alpha ratio)
+- [x] Empty PDF handling (COMPLETED + chunking_error)
+- [x] Unique constraint: (kap_report_id, chunk_text_hash)
+- [x] KapReport modeline chunking_status, chunking_error, chunked_at alanlari eklendi
+- [x] Scheduled job: `chunking_hourly` (hourly)
+- [x] Unit tests: 39 tests passing
 
 ### Task 5.3: Embedding Pipeline
 
 **Tahmini Sure:** 4 saat
-**Durum:** Planned
+**Durum:** Completed
 
-- [ ] `embedding_service.py` olustur
-- [ ] ChromaDB client baglantisini kur
-- [ ] Collection olustur: `kap_documents`
-- [ ] Embedding modeli sec
-- [ ] PENDING chunk'lari embed et
-- [ ] Metadata ekle: stock_symbol, report_title, published_at, chunk_index
-- [ ] Status alanlarini guncelle
+- [x] `embedding_service.py` olustur
+- [x] ChromaDB client baglantisini kur
+- [x] Collection olustur: `kap_documents`
+- [x] Embedding modeli sec: openai/text-embedding-3-small (1536 dim)
+- [x] PENDING chunk'lari embed et (OpenRouter API)
+- [x] Metadata ekle: stock_symbol, report_title, published_at, chunk_index, filing_type, kap_report_id
+- [x] Status alanlarini guncelle (EmbeddingStatus enum: PENDING/COMPLETED/FAILED)
+- [x] Batch processing: 100 chunks per API call, 500 chunks per scheduler run
+- [x] Scheduled job: `embedding_10min` (every 10 minutes)
+- [x] Unit tests: 25 tests passing
 
 ### Task 5.4: Retriever
 
 **Tahmini Sure:** 3 saat
-**Durum:** Planned
+**Durum:** Completed
 
-- [ ] `rag/retriever.py` olustur
-- [ ] Similarity search yaz
-- [ ] Stock symbol metadata filter ekle
-- [ ] Source bilgisiyle sonuc don
-- [ ] Test: "THYAO net kar" sorgusunda ilgili chunk'lar gelsin
+- [x] `rag/retriever.py` olustur
+- [x] Similarity search yaz (L2 distance)
+- [x] Stock symbol metadata filter ekle
+- [x] Source bilgisiyle sonuc don (RetrievedChunk model)
+- [x] Dedup by chunk_text_hash
+- [x] Unit tests: 17 tests passing
 
 ### Task 5.5: CrewAI Text Analysis Agent
 

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -17,3 +17,7 @@ class DocumentChunk(Base):
     chroma_document_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     embedding_status: Mapped[str] = mapped_column(String(50), default="PENDING", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("kap_report_id", "chunk_text_hash", name="uq_document_chunk_report_hash"),
+    )

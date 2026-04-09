@@ -5,6 +5,8 @@ This module provides APScheduler-based scheduling for:
 - Financial sync: Weekly (normal) + 4-hourly (reporting mode)
 - KAP sync: Hourly (BIST100), Daily (watchlist), 3-day (slow)
 - PDF download: Hourly
+- Chunking: Hourly (process downloaded PDFs)
+- Embedding: Every 10 minutes (embed pending chunks)
 """
 
 import uuid
@@ -27,6 +29,8 @@ from app.services.data.pdf_download_service import (
     batch_download_pending_pdfs,
     batch_retry_failed_downloads,
 )
+from app.services.pipeline.chunking_service import batch_chunk_completed_pdfs
+from app.services.pipeline.embedding_service import batch_embed_pending_chunks
 from app.services.pipeline.market_hours import is_bist_trading_hours
 from app.services.pipeline.job_policy import (
     get_all_active_symbols,
@@ -564,6 +568,147 @@ async def run_pdf_download_job(
             )
 
 
+async def run_chunking_job(
+    *,
+    limit: int | None = None,
+    trigger: str = "scheduled",
+    run_id: str | None = None,
+) -> None:
+    """Execute chunking job for completed PDFs.
+
+    This scheduler wrapper is THE ONLY place that creates PipelineLog.
+    Service functions return results, NOT logs.
+    """
+    scheduler_job_id = "chunking_hourly"
+    pipeline_name = "chunking_sync"
+    run_id = run_id or str(uuid.uuid4())
+    started_at = datetime.now(timezone.utc)
+
+    # Default limit from config
+    from app.config import get_settings
+    settings = get_settings()
+    limit = limit or settings.chunk_max_per_run
+
+    async with AsyncSessionLocal() as db:
+        try:
+            logger.info(f"{scheduler_job_id}: Starting chunking (limit={limit})")
+
+            # Execute chunking (service returns result, no log)
+            result = await batch_chunk_completed_pdfs(db, limit=limit)
+
+            # THE ONLY PipelineLog creation for this run
+            await _log_job_execution(
+                db=db,
+                job_name=pipeline_name,
+                run_id=run_id,
+                status=result.status,
+                started_at=started_at,
+                finished_at=datetime.now(timezone.utc),
+                processed_count=result.total_processed,
+                details={
+                    "pipeline_name": pipeline_name,
+                    "trigger": trigger,
+                    "scheduler_job_id": scheduler_job_id,
+                    "successful": result.successful,
+                    "failed": result.failed,
+                    "limit": limit,
+                },
+            )
+
+            logger.info(
+                f"{scheduler_job_id}: Completed - status={result.status}, "
+                f"processed={result.total_processed}, successful={result.successful}, failed={result.failed}"
+            )
+
+        except Exception as e:
+            logger.exception(f"{scheduler_job_id}: Failed with error")
+            await _log_job_execution(
+                db=db,
+                job_name=pipeline_name,
+                run_id=run_id,
+                status="failed",
+                started_at=started_at,
+                finished_at=datetime.now(timezone.utc),
+                error_message=str(e),
+                details={
+                    "trigger": trigger,
+                    "pipeline_name": pipeline_name,
+                    "scheduler_job_id": scheduler_job_id,
+                },
+            )
+
+
+async def run_embedding_job(
+    *,
+    limit: int | None = None,
+    trigger: str = "scheduled",
+    run_id: str | None = None,
+) -> None:
+    """Execute embedding job for pending chunks.
+
+    This scheduler wrapper is THE ONLY place that creates PipelineLog.
+    Service functions return results, NOT logs.
+    """
+    scheduler_job_id = "embedding_10min"
+    pipeline_name = "embedding_sync"
+    run_id = run_id or str(uuid.uuid4())
+    started_at = datetime.now(timezone.utc)
+
+    # Default limit from config
+    from app.config import get_settings
+    settings = get_settings()
+    limit = limit or settings.embedding_max_per_run
+
+    async with AsyncSessionLocal() as db:
+        try:
+            logger.info(f"{scheduler_job_id}: Starting embedding (limit={limit})")
+
+            # Execute embedding (service returns result, no log)
+            result = await batch_embed_pending_chunks(db, limit=limit)
+
+            # THE ONLY PipelineLog creation for this run
+            await _log_job_execution(
+                db=db,
+                job_name=pipeline_name,
+                run_id=run_id,
+                status=result.status,
+                started_at=started_at,
+                finished_at=datetime.now(timezone.utc),
+                processed_count=result.total_processed,
+                details={
+                    "pipeline_name": pipeline_name,
+                    "trigger": trigger,
+                    "scheduler_job_id": scheduler_job_id,
+                    "successful": result.successful,
+                    "failed": result.failed,
+                    "limit": limit,
+                    "api_batch_size": settings.embedding_batch_size,
+                },
+            )
+
+            logger.info(
+                f"{scheduler_job_id}: Completed - status={result.status}, "
+                f"processed={result.total_processed}, successful={result.successful}, failed={result.failed}"
+            )
+
+        except Exception as e:
+            logger.exception(f"{scheduler_job_id}: Failed with error")
+            await _log_job_execution(
+                db=db,
+                job_name=pipeline_name,
+                run_id=run_id,
+                status="failed",
+                started_at=started_at,
+                finished_at=datetime.now(timezone.utc),
+                error_message=str(e),
+                details={
+                    "trigger": trigger,
+                    "pipeline_name": pipeline_name,
+                    "scheduler_job_id": scheduler_job_id,
+                },
+            )
+
+
 # ============================================================================
 # Scheduler Lifecycle
 # ============================================================================
@@ -633,6 +778,24 @@ async def start_scheduler() -> None:
         trigger=IntervalTrigger(hours=1),
         id="pdf_download_hourly",
         name="PDF Download Hourly",
+        replace_existing=True,
+    )
+
+    # Job 7: Chunking - hourly (process PDFs that completed download)
+    scheduler.add_job(
+        run_chunking_job,
+        trigger=IntervalTrigger(hours=1),
+        id="chunking_hourly",
+        name="Chunking Hourly",
+        replace_existing=True,
+    )
+
+    # Job 8: Embedding - every 10 minutes (embed pending chunks)
+    scheduler.add_job(
+        run_embedding_job,
+        trigger=IntervalTrigger(minutes=10),
+        id="embedding_10min",
+        name="Embedding (10min)",
         replace_existing=True,
     )
 
