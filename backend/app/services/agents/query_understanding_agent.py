@@ -153,12 +153,35 @@ def _heuristic_intent(query: str) -> QueryIntent:
 
 
 def _heuristic_candidate_symbol(query: str) -> str | None:
+    separators = "?,.!:;/-_()[]{}"
     query_upper = query.upper()
-    for token in query_upper.replace("?", " ").replace(",", " ").split():
+    for separator in separators:
+        query_upper = query_upper.replace(separator, " ")
+
+    for token in query_upper.split():
         normalized = token.strip()
+        if normalized.lower() in GREETING_PREFIXES:
+            continue
         if 3 <= len(normalized) <= 6 and normalized.isalpha():
             return normalized
     return None
+
+
+def _stabilize_candidate_symbol(query: str, candidate_symbol: str | None) -> str | None:
+    """Keep greeting-like tokens from overriding obvious stock symbols in the query."""
+    heuristic = _heuristic_candidate_symbol(query)
+
+    if not candidate_symbol:
+        return heuristic
+
+    normalized = candidate_symbol.upper().strip(" ?,.:;/-_()[]{}")
+    if not normalized:
+        return heuristic
+
+    if normalized.lower() in GREETING_PREFIXES:
+        return heuristic
+
+    return normalized
 
 
 def _fallback_analysis(query: str) -> QueryUnderstandingResult:
@@ -226,7 +249,10 @@ async def analyze_query(
 
         result = QueryUnderstandingResult(
             normalized_query=parsed.get("normalized_query", query),
-            candidate_symbol=parsed.get("candidate_symbol"),
+            candidate_symbol=_stabilize_candidate_symbol(
+                query,
+                parsed.get("candidate_symbol"),
+            ),
             document_type=_map_document_type(parsed.get("document_type")),
             intent=_map_intent(parsed.get("intent", "GENERIC")),
             confidence=min(1.0, max(0.0, parsed.get("confidence", 0.5))),

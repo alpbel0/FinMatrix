@@ -42,7 +42,7 @@ class TestCheckSufficientContext:
     def test_high_distance_chunk(self):
         """Test chunk with high distance (low similarity)."""
         chunks = [
-            {"score": 0.9, "chunk_text": "x" * 600}  # High distance > 0.7
+            {"score": 1.8, "chunk_text": "x" * 600}  # High distance > 1.5
         ]
         has_sufficient, confidence, total_chars = check_sufficient_context(chunks)
         assert has_sufficient is False
@@ -62,9 +62,18 @@ class TestCheckSufficientContext:
             {"score": 0.5, "chunk_text": "x" * 300},
         ]
         has_sufficient, confidence, total_chars = check_sufficient_context(chunks)
-        # Total chars = 600 >= 500, best distance = 0.5 < 0.7
+        # Total chars = 600 >= 500, best distance = 0.5 < 1.5
         assert has_sufficient is True
         assert total_chars == 600
+
+    def test_realistic_report_distance_is_sufficient(self):
+        """Test realistic L2 distances from live retrieval are accepted."""
+        chunks = [
+            {"score": 1.12, "chunk_text": "x" * 800},
+        ]
+        has_sufficient, confidence, total_chars = check_sufficient_context(chunks)
+        assert has_sufficient is True
+        assert confidence > 0.0
 
 
 class TestPrepareSourceItems:

@@ -50,7 +50,7 @@ class Settings(BaseSettings):
 
     # Retrieval sufficiency criteria (multi-factor)
     min_chunks_for_context: int = 1  # At least 1 chunk
-    max_chunk_distance: float = 0.7  # L2 distance threshold (lower = better match)
+    max_chunk_distance: float = 1.5  # L2 distance threshold (lower = better match)
     # IMPORTANT: L2 distance'te düşük değer daha iyi. max_chunk_distance üst sınır.
     min_total_context_chars: int = 500  # Minimum total content length
 

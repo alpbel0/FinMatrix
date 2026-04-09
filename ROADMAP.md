@@ -761,6 +761,23 @@ FinMatrix/
 - [x] Chat session creation + message persistence
 - [x] Source transparency in frontend
 
+### Task 5.7: Chat/RAG Trace Logging
+
+**Tahmini Sure:** 3 saat
+**Durum:** Completed
+
+- [x] `models/chat_trace.py` olustur
+- [x] `alembic/versions/b9d0e1f2a3b4_add_chat_traces.py` migration dosyasini ekle
+- [x] `services/chat_trace_service.py` - structured trace persistence
+- [x] `chat_service.py` icinde user_message_id / assistant_message_id ile trace lifecycle kur
+- [x] Query understanding payload'ini JSONB olarak kaydet
+- [x] Retrieval summary + source metadata'yi JSONB olarak kaydet
+- [x] Response summary + insufficient_context bilgisini kaydet
+- [x] resolved_symbol, document_type, intent, confidence gibi debug alanlarini sakla
+- [x] duration_ms ve error_message alanlarini doldur
+- [x] Basarili ve hatali akislari ayri status ile logla (`SUCCESS` / `FAILED`)
+- [x] Unit tests: `test_chat_trace_service.py`
+
 ---
 
 ## Week 6: Numerical Agent, Orchestrator ve Chat UX Derinlestirme

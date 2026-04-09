@@ -19,6 +19,7 @@ from app.services.agents.query_understanding_agent import (
     _map_intent,
     _parse_llm_response,
     _fallback_analysis,
+    _stabilize_candidate_symbol,
     analyze_query,
     is_greeting,
 )
@@ -244,4 +245,57 @@ class TestFallbackAnalysis:
         result = _fallback_analysis("THYAO faaliyet raporu ne diyor?")
         assert result.intent == QueryIntent.SUMMARY
         assert result.document_type == DocumentType.FAR
+        assert result.candidate_symbol == "THYAO"
+
+
+class TestCandidateSymbolStabilization:
+    """Tests for candidate symbol post-processing."""
+
+    def test_greeting_candidate_replaced_with_actual_symbol(self):
+        result = _stabilize_candidate_symbol(
+            "Selam, THYAO faaliyet raporunu yorumla",
+            "SELAM",
+        )
+        assert result == "THYAO"
+
+    def test_valid_symbol_preserved(self):
+        result = _stabilize_candidate_symbol(
+            "THYAO faaliyet raporu ne diyor?",
+            "THYAO",
+        )
+        assert result == "THYAO"
+
+    @pytest.mark.asyncio
+    async def test_llm_greeting_candidate_is_stabilized(self):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "choices": [{
+                "message": {
+                    "content": json.dumps({
+                        "normalized_query": "Selam, THYAO faaliyet raporunu yorumla",
+                        "candidate_symbol": "SELAM",
+                        "document_type": "FAR",
+                        "intent": "SUMMARY",
+                        "confidence": 0.9
+                    })
+                }
+            }]
+        }
+        mock_response.raise_for_status = MagicMock()
+
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_response
+
+        with patch("app.services.agents.query_understanding_agent.load_prompt") as mock_load:
+            mock_load.return_value = MagicMock(
+                model="test-model",
+                system_prompt="test",
+                user_prompt_template="{query}",
+                temperature=0.3,
+                max_tokens=512,
+                format_user_prompt=lambda **kw: "test prompt"
+            )
+
+            result = await analyze_query("Selam, THYAO faaliyet raporunu yorumla", mock_client)
+
         assert result.candidate_symbol == "THYAO"

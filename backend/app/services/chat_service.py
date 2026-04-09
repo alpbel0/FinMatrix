@@ -1,22 +1,17 @@
-"""Chat service for session and message management.
+"""Chat service for session and message management."""
 
-This service handles:
-- Session CRUD operations
-- Message persistence
-- RAG pipeline integration
-
-Separates concerns from chat_rag_service (which handles the RAG pipeline).
-"""
-
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
-
 from app.models.chat import ChatMessage, ChatSession
 from app.schemas.chat import RAGResponse, SessionCreateRequest, SessionResponse
-from app.services.chat_rag_service import process_chat_query, save_message
+from app.services.chat_rag_service import run_chat_pipeline, save_message
+from app.services.chat_trace_service import (
+    create_chat_trace,
+    finalize_chat_trace_failure,
+    finalize_chat_trace_success,
+)
 from app.services.utils.logging import logger
 
 
@@ -133,33 +128,59 @@ async def send_message(
     Returns:
         RAGResponse with answer and sources
     """
-    # Save user message
-    await save_message(
+    started_at = datetime.now(timezone.utc)
+
+    user_message = await save_message(
         db=db,
         session_id=session_id,
         role="user",
         content=message,
     )
-
-    # Process through RAG pipeline
-    response = await process_chat_query(
+    trace = await create_chat_trace(
         db=db,
+        session_id=session_id,
         user_id=user_id,
-        session_id=session_id,
-        query=message,
+        user_message_id=user_message.id,
+        original_query=message,
     )
 
-    # Save assistant message with sources
-    sources_metadata = [s.model_dump() for s in response.sources]
-    await save_message(
-        db=db,
-        session_id=session_id,
-        role="assistant",
-        content=response.answer_text,
-        sources_metadata=sources_metadata,
-    )
+    pipeline_result = None
+    try:
+        pipeline_result = await run_chat_pipeline(
+            db=db,
+            user_id=user_id,
+            session_id=session_id,
+            query=message,
+        )
+        response = pipeline_result.response
 
-    return response
+        assistant_message = await save_message(
+            db=db,
+            session_id=session_id,
+            role="assistant",
+            content=response.answer_text,
+            sources_metadata=[s.model_dump(mode="json") for s in response.sources],
+        )
+
+        await finalize_chat_trace_success(
+            db=db,
+            trace=trace,
+            pipeline_result=pipeline_result,
+            assistant_message_id=assistant_message.id,
+            duration_ms=int((datetime.now(timezone.utc) - started_at).total_seconds() * 1000),
+        )
+        return response
+    except Exception as exc:
+        await db.rollback()
+        await finalize_chat_trace_failure(
+            db=db,
+            trace=trace,
+            error_message=str(exc),
+            duration_ms=int((datetime.now(timezone.utc) - started_at).total_seconds() * 1000),
+            pipeline_result=pipeline_result,
+        )
+        logger.error("Chat send_message error: %s", exc)
+        raise
 
 
 async def get_session_messages(
