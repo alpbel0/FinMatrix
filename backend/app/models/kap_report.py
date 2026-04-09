@@ -2,7 +2,7 @@ from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
@@ -25,7 +25,14 @@ class KapReport(Base):
     attachment_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     is_late: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     related_stocks: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)  # PostgreSQL JSONB array
+    # PDF Download tracking fields
+    local_pdf_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    pdf_download_status: Mapped[str] = mapped_column(String(50), default="PENDING", nullable=False)
+    pdf_file_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pdf_downloaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    pdf_download_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    stock: Mapped["Stock | None"] = relationship(lazy="selectin")
 
     __table_args__ = (
         UniqueConstraint("stock_id", "source_url", name="uq_kap_report_stock_source"),

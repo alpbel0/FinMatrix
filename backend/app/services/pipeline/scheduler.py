@@ -4,6 +4,7 @@ This module provides APScheduler-based scheduling for:
 - Price sync: Every 15 minutes during BIST trading hours
 - Financial sync: Weekly (normal) + 4-hourly (reporting mode)
 - KAP sync: Hourly (BIST100), Daily (watchlist), 3-day (slow)
+- PDF download: Hourly
 """
 
 import uuid
@@ -22,6 +23,10 @@ from app.models.pipeline_log import PipelineLog
 from app.services.data.market_data_service import batch_sync_prices
 from app.services.financials_service import batch_sync_financials
 from app.services.data.kap_data_service import batch_sync_kap_filings
+from app.services.data.pdf_download_service import (
+    batch_download_pending_pdfs,
+    batch_retry_failed_downloads,
+)
 from app.services.pipeline.market_hours import is_bist_trading_hours
 from app.services.pipeline.job_policy import (
     get_all_active_symbols,
@@ -467,6 +472,98 @@ async def run_kap_slow_job(
     )
 
 
+async def run_pdf_download_job(
+    *,
+    limit: int | None = None,
+    trigger: str = "scheduled",
+    run_id: str | None = None,
+) -> None:
+    """Execute PDF download job for pending and failed downloads.
+
+    This scheduler wrapper is THE ONLY place that creates PipelineLog.
+    Service functions return results, NOT logs.
+    """
+    scheduler_job_id = "pdf_download_hourly"  # APScheduler job ID
+    pipeline_name = "pdf_download_sync"       # PipelineLog.pipeline_name
+    run_id = run_id or str(uuid.uuid4())
+    started_at = datetime.now(timezone.utc)
+
+    # Default limit from config
+    from app.config import get_settings
+    settings = get_settings()
+    limit = limit or settings.pdf_max_downloads_per_run
+
+    async with AsyncSessionLocal() as db:
+        try:
+            logger.info(f"{scheduler_job_id}: Starting PDF downloads (limit={limit})")
+
+            # Phase 1: Download pending PDFs (service returns result, no log)
+            pending_result = await batch_download_pending_pdfs(
+                db, limit=limit, filing_types=["FR"]
+            )
+
+            # Phase 2: Retry failed downloads (remaining slots)
+            if pending_result.total_processed < limit:
+                remaining = limit - pending_result.total_processed
+                retry_result = await batch_retry_failed_downloads(
+                    db, limit=remaining
+                )
+                # Combine results for final log
+                total_processed = pending_result.total_processed + retry_result.total_processed
+                successful = pending_result.successful + retry_result.successful
+                failed = pending_result.failed + retry_result.failed
+                not_available = pending_result.not_available + retry_result.not_available
+                status = "success" if failed == 0 else "partial"
+            else:
+                total_processed = pending_result.total_processed
+                successful = pending_result.successful
+                failed = pending_result.failed
+                not_available = pending_result.not_available
+                status = pending_result.status
+
+            # THE ONLY PipelineLog creation for this run
+            await _log_job_execution(
+                db=db,
+                job_name=pipeline_name,  # PipelineLog.pipeline_name = "pdf_download_sync"
+                run_id=run_id,
+                status=status,
+                started_at=started_at,
+                finished_at=datetime.now(timezone.utc),
+                processed_count=total_processed,
+                details={
+                    "pipeline_name": pipeline_name,
+                    "trigger": trigger,
+                    "scheduler_job_id": scheduler_job_id,
+                    "successful": successful,
+                    "failed": failed,
+                    "not_available": not_available,
+                    "limit": limit,
+                },
+            )
+
+            logger.info(
+                f"{scheduler_job_id}: Completed - status={status}, "
+                f"downloaded={successful}, failed={failed}, not_available={not_available}"
+            )
+
+        except Exception as e:
+            logger.exception(f"{scheduler_job_id}: Failed with error")
+            await _log_job_execution(
+                db=db,
+                job_name=pipeline_name,
+                run_id=run_id,
+                status="failed",
+                started_at=started_at,
+                finished_at=datetime.now(timezone.utc),
+                error_message=str(e),
+                details={
+                    "trigger": trigger,
+                    "pipeline_name": pipeline_name,
+                    "scheduler_job_id": scheduler_job_id,
+                },
+            )
+
+
 # ============================================================================
 # Scheduler Lifecycle
 # ============================================================================
@@ -527,6 +624,15 @@ async def start_scheduler() -> None:
         trigger=CronTrigger(day="*/3", hour=2, minute=0, timezone="Europe/Istanbul"),
         id="kap_sync_slow",
         name="KAP Sync Slow (3-day)",
+        replace_existing=True,
+    )
+
+    # Job 6: PDF Download - hourly
+    scheduler.add_job(
+        run_pdf_download_job,
+        trigger=IntervalTrigger(hours=1),
+        id="pdf_download_hourly",
+        name="PDF Download Hourly",
         replace_existing=True,
     )
 

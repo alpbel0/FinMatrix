@@ -666,13 +666,16 @@ FinMatrix/
 ### Task 5.1: PDF Download Service
 
 **Tahmini Sure:** 3 saat
-**Durum:** Planned
+**Durum:** ✅ Completed
 
-- [ ] Filing metadata icinden PDF URL'lerini cikar
-- [ ] PDF indirme servisini yaz
-- [ ] Indirme hatalarini `pipeline_logs` ile kaydet
-- [ ] Gecici veya kalici storage stratejisini netlestir
-- [ ] Test: En az 3 farkli KAP raporunu indir
+- [x] Filing metadata icinden PDF URL'lerini cikar
+- [x] PDF indirme servisini yaz (`pdf_download_service.py`)
+- [x] Indirme hatalarini `pipeline_logs` ile kaydet
+- [x] Storage stratejisi: `backend/data/pdfs/{symbol}/{year}/{disclosure_index}.pdf`
+- [x] KapReport modeline 5 yeni alan eklendi (local_pdf_path, pdf_download_status, pdf_file_size, pdf_downloaded_at, pdf_download_error)
+- [x] Scheduled job: `pdf_download_hourly` (hourly)
+- [x] Unit tests: 31 tests passing
+- [x] Integration tests: Real PDF download tests for THYAO, GARAN, AKBNK
 
 ### Task 5.2: PDF Text Extraction ve Chunking
 

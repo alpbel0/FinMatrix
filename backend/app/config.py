@@ -17,6 +17,12 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000"
     log_level: str = "INFO"
 
+    # PDF Download Settings
+    pdf_storage_path: str = "data/pdfs"  # Relative to backend directory
+    pdf_max_downloads_per_run: int = 50
+    pdf_download_timeout: float = 30.0
+    pdf_transient_retry_count: int = 2  # ONLY for transient network errors within single run
+
 
 @lru_cache
 def get_settings() -> Settings:
