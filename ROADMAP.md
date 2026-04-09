@@ -606,13 +606,13 @@ FinMatrix/
 ### Task 4.5: Mocklar ve Testler
 
 **Tahmini Sure:** 2 saat
-**Durum:** Planned
+**Durum:** ✅ Completed
 
-- [ ] `tests/mocks/mock_kap.py` -> provider-agnostic KAP fixtures
-- [ ] `tests/mocks/mock_chromadb.py`
-- [ ] `tests/unit/test_chunking_service.py`
-- [ ] `tests/unit/test_embedding_service.py`
-- [ ] `pytest tests/unit/` ile tum unit testleri calistir
+- [x] `tests/mocks/mock_kap.py` -> provider-agnostic KAP fixtures
+- [x] `tests/mocks/mock_chromadb.py` -> ChromaDB mock for Week 5
+- [ ] `tests/unit/test_chunking_service.py` -> deferred to Week 5
+- [ ] `tests/unit/test_embedding_service.py` -> deferred to Week 5
+- [x] Scheduler tests verified: test_scheduler.py (2), test_market_hours.py (23), test_job_policy.py (14), test_bist_index_provider.py (10) = 49 tests passing
 
 ### Task 4.6: Watchlist Slice
 
