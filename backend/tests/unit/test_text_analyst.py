@@ -73,7 +73,7 @@ class TestRunTextAnalysis:
             memory_context="",
         )
 
-        with patch("app.services.agents.text_analyst.run_chat_pipeline", AsyncMock(return_value=pipeline)):
+        with patch("app.services.agents.text_analyst.run_document_pipeline", AsyncMock(return_value=pipeline)):
             result = await run_text_analysis(
                 db=AsyncMock(),
                 user_id=1,

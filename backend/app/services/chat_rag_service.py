@@ -6,7 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.models.chat import ChatMessage, ChatSession
+from app.models.income_statement import IncomeStatement
 from app.models.kap_report import KapReport
+from app.models.stock import Stock
 from app.schemas.chat import QueryUnderstandingResult, RAGResponse, RetrievalAgentResult
 from app.schemas.enums import DocumentType, QueryIntent
 from app.services.agents.query_understanding_agent import analyze_query, is_greeting
@@ -43,6 +45,56 @@ def format_memory_context(messages: list[ChatMessage]) -> str:
         formatted.append(f"{role}: {message.content[:200]}")
 
     return "\n".join(formatted)
+
+
+def _format_money(value: float | None) -> str:
+    """Format TRY financial statement values for LLM grounding."""
+    if value is None:
+        return "yok"
+    return f"{value:,.0f} TRY".replace(",", ".")
+
+
+async def get_structured_financial_context(
+    db: AsyncSession,
+    symbol: str | None,
+    intent: QueryIntent,
+) -> str:
+    """Build a verified structured metric block for metric-oriented answers."""
+    if not symbol or intent != QueryIntent.METRIC:
+        return ""
+
+    result = await db.execute(
+        select(IncomeStatement)
+        .join(Stock, Stock.id == IncomeStatement.stock_id)
+        .where(Stock.symbol == symbol)
+        .order_by(IncomeStatement.statement_date.desc())
+    )
+    statements = list(result.scalars().all())
+    if not statements:
+        return ""
+
+    latest_by_period: dict[str, IncomeStatement] = {}
+    for statement in statements:
+        if statement.period_type not in latest_by_period:
+            latest_by_period[statement.period_type] = statement
+
+    lines = [
+        f"DOGRULANMIS DB METRIKLERI - {symbol}",
+        "Kaynak tipi: Yapilandirilmis finansal tablo veritabani.",
+        "Kural: Net kar sorularinda net_income degerini kullan; revenue/hasılat degerini net kar gibi yorumlama.",
+    ]
+    for period_type in ("annual", "quarterly"):
+        statement = latest_by_period.get(period_type)
+        if statement is None:
+            continue
+        lines.append(
+            f"- {period_type} {statement.statement_date}: "
+            f"revenue={_format_money(statement.revenue)}; "
+            f"net_income={_format_money(statement.net_income)}; "
+            f"source={statement.source}"
+        )
+
+    return "\n".join(lines)
 
 
 async def enrich_retrieval_sources(
@@ -114,13 +166,13 @@ def _pipeline_result(
     )
 
 
-async def run_chat_pipeline(
+async def run_document_pipeline(
     db: AsyncSession,
     user_id: int,
     session_id: int,
     query: str,
 ) -> ChatPipelineResult:
-    """Process a chat query and return response plus internal debug context."""
+    """Run the legacy document-first RAG pipeline."""
     settings = get_settings()
 
     session_result = await db.execute(
@@ -202,6 +254,11 @@ async def run_chat_pipeline(
             understanding=understanding,
         )
         retrieval = await enrich_retrieval_sources(db, retrieval)
+        structured_financial_context = await get_structured_financial_context(
+            db=db,
+            symbol=resolved_symbol,
+            intent=understanding.intent,
+        )
         logger.debug(
             "Retrieval: %s chunks, sufficient=%s",
             len(retrieval.chunks),
@@ -213,6 +270,7 @@ async def run_chat_pipeline(
             understanding=understanding,
             retrieval=retrieval,
             memory_context=memory_context,
+            structured_financial_context=structured_financial_context,
             http_client=http_client,
         )
         response.stock_symbol = resolved_symbol
@@ -224,6 +282,46 @@ async def run_chat_pipeline(
             retrieval=retrieval,
             memory_context=memory_context,
         )
+
+
+async def run_chat_pipeline(
+    db: AsyncSession,
+    user_id: int,
+    session_id: int,
+    query: str,
+) -> ChatPipelineResult:
+    """Run the public chat pipeline through the orchestrator layer."""
+    session_result = await db.execute(
+        select(ChatSession).where(
+            ChatSession.id == session_id,
+            ChatSession.user_id == user_id,
+        )
+    )
+    session = session_result.scalar_one_or_none()
+    if not session:
+        logger.warning("Session not found or access denied: session_id=%s, user_id=%s", session_id, user_id)
+        return _pipeline_result(
+            response=RAGResponse(
+                answer_text="Oturum bulunamadÄ±. LÃ¼tfen yeni bir oturum baÅŸlatÄ±n.",
+                sources=[],
+                stock_symbol=None,
+                document_type=DocumentType.ANY,
+                insufficient_context=True,
+            ),
+            understanding=_generic_understanding(query),
+            resolved_symbol=None,
+            retrieval=_empty_retrieval_result(),
+            memory_context="",
+        )
+
+    from app.services.agents.orchestrator import run_orchestrated_pipeline
+
+    return await run_orchestrated_pipeline(
+        db=db,
+        user_id=user_id,
+        session_id=session_id,
+        query=query,
+    )
 
 
 async def process_chat_query(

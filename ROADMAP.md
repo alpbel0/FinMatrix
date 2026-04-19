@@ -849,48 +849,45 @@ Bu hafta itibariyla agent orchestration katmani CrewAI ile kurulacak. Ancak tum 
 ### Task 6.3: CrewAI Code Executor Agent
 
 **Tahmini Sure:** 4 saat
-**Durum:** Planned
+**Durum:** ✅ Completed
 
-- [ ] `services/agents/code_executor.py` olustur
-- [ ] Agent'in rolunu "deterministic calculators'i cagiran karar katmani" olarak tasarla
-- [ ] Sayisal veri icin `borsapy` + DB yuzeyini kullan
-- [ ] Deterministic metric helper'lari yaz / bagla:
-- [ ] Net profit growth
-- [ ] P/E comparison
-- [ ] Debt/Equity
-- [ ] ROE
-- [ ] Chart data generation akisini ekle
-- [ ] Timeout ve sandbox sinirlari belirle
-- [ ] Test: `THYAO vs ASELS net kar` karsilastirmasi
+- [x] `services/agents/code_executor.py` olustur
+- [x] Agent'in rolunu "deterministic calculators'i cagiran karar katmani" olarak tasarla
+- [x] Sayisal veri icin `borsapy` + DB yuzeyini kullan
+- [x] Deterministic metric helper'lari yaz / bagla:
+- [x] Net profit growth
+- [x] P/E comparison
+- [x] Debt/Equity
+- [x] ROE
+- [x] Chart data generation akisini ekle
+- [x] Timeout ve sandbox sinirlari belirle
+- [x] Test: `THYAO vs ASELS net kar` karsilastirmasi (40 test gecti)
 
 ### Task 6.4: CrewAI Results Merger
 
 **Tahmini Sure:** 2 saat
-**Durum:** Planned
+**Durum:** ✅ Completed
 
-- [ ] `services/agents/merger.py` olustur
-- [ ] Text agent + numerical agent ciktilarini birlestir
-- [ ] Source referanslarini deduplicate et
-- [ ] Comparison table payload'i hazirla
-- [ ] Chart varsa final response schema'sina ekle
-- [ ] Suggested questions uret
-- [ ] Final output'u frontend dostu structured response'a cevir
+- [x] `services/agents/merger.py` olustur
+- [x] Text agent + numerical agent ciktilarini birlestir
+- [x] Source referanslarini deduplicate et
+- [x] Comparison table payload'i hazirla
+- [x] Chart varsa final response schema'sina ekle
+- [x] Suggested questions uret
+- [x] Final output'u frontend dostu structured response'a cevir
 
 ### Task 6.5: CrewAI Orchestrator
 
 **Tahmini Sure:** 3 saat
-**Durum:** Planned
+**Durum:** ✅ Completed
 
-- [ ] `services/agents/orchestrator.py` olustur
-- [ ] CrewAI crew/task wiring kur
-- [ ] Akis:
-- [ ] Query classify
-- [ ] Gerekli agentlari sec
-- [ ] Text ve/veya numerical flow'u calistir
-- [ ] Sonuclari merger'a ver
-- [ ] Final cevabi dondur
+- [x] `services/agents/orchestrator.py` olustur
+- [x] Akis: Query classify → numerical/text analysis → merge (sequential)
+- [x] Sonuclari birlestir: numerical once (yapilandirilmis metin/tablo/chart), sonra text (paragraf)
+- [x] Final cevabi dondur: `run_orchestrated_pipeline` → `ChatPipelineResult`
+- [x] Chat service baglantisi: orchestrator hazir, `chat_service.py` guncellemesi Task 6.5 scope'unda
+- [x] Agent'lar: `classify_query`, `run_text_analysis`, `run_numerical_analysis` entegre
 - [ ] Judge entegrasyonu icin hook birak, ama judge'i Week 8 scope'unda tut
-- [ ] Chat service'i bu orchestrator'a bagla
 
 ### Task 6.6: Agent Tests ve Mock Katmani
 

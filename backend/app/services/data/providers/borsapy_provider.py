@@ -50,6 +50,21 @@ class BorsapyProvider(BaseMarketDataProvider):
     - Handles UFRS (banks) and XI_29 (non-banks) financial formats
     """
 
+    REVENUE_LABELS = (
+        "Satış Gelirleri",
+        "Hasılat",
+        "Faiz Gelirleri",
+    )
+    NET_INCOME_LABELS = (
+        "Ana Ortaklık Payları",
+        "Net Dönem Karı/Zararı",
+        "NET DÖNEM KARI/ZARARI",
+        "XXIII. NET DÖNEM KARI/ZARARI (XVII+XXII)",
+        "23.1 Grubun Karı/Zararı",
+        "DÖNEM KARI (ZARARI)",
+        "SÜRDÜRÜLEN FAALİYETLER DÖNEM KARI/ZARARI",
+    )
+
     def __init__(self, timeout: float = 30.0, retry_count: int = 3):
         super().__init__(timeout=timeout, retry_count=retry_count)
         logger.info("Initializing BorsapyProvider")
@@ -274,8 +289,16 @@ class BorsapyProvider(BaseMarketDataProvider):
                     total_assets=self._get_value(balance_df, "Aktifler", period_str),
                     total_equity=self._get_value(balance_df, "Kaynaklar", period_str),
                     # Income Statement items
-                    revenue=self._get_value(income_df, "Satışlar", period_str),
-                    net_income=self._get_value(income_df, "Net", period_str),
+                    revenue=self._get_first_available_value(
+                        income_df,
+                        self.REVENUE_LABELS,
+                        period_str,
+                    ),
+                    net_income=self._get_first_available_value(
+                        income_df,
+                        self.NET_INCOME_LABELS,
+                        period_str,
+                    ),
                     # Cash Flow items
                     operating_cash_flow=self._get_value(cashflow_df, "Faaliyet", period_str),
                     free_cash_flow=self._get_value(cashflow_df, "FCF", period_str),
@@ -681,3 +704,34 @@ class BorsapyProvider(BaseMarketDataProvider):
             logger.debug(f"Could not extract value for '{row_pattern}' in period {period}: {e}")
 
         return None
+
+    def _get_first_available_value(
+        self,
+        df: pd.DataFrame,
+        row_labels: Sequence[str],
+        period: str,
+    ) -> float | None:
+        """Extract the first populated metric using exact row-label priority."""
+        if df.empty or period not in df.columns:
+            return None
+
+        label_to_index = {
+            self._normalize_financial_label(index_label): index_label
+            for index_label in df.index
+        }
+
+        for row_label in row_labels:
+            normalized_label = self._normalize_financial_label(row_label)
+            index_label = label_to_index.get(normalized_label)
+            if index_label is None:
+                continue
+
+            value = df.at[index_label, period]
+            if pd.notna(value):
+                return float(value)
+
+        return None
+
+    def _normalize_financial_label(self, label: object) -> str:
+        """Normalize a financial statement row label for exact comparisons."""
+        return " ".join(str(label).casefold().split())

@@ -522,3 +522,59 @@ class TestHelperMethods:
         for input_text, expected_substring in test_cases:
             result = provider._normalize_text(input_text)
             assert expected_substring in result, f"Failed for {input_text}: got {result}"
+
+
+class TestFinancialMetricExtraction:
+    """Tests for exact financial metric extraction."""
+
+    def test_revenue_selector_does_not_match_sales_cost(self, provider):
+        """Revenue should come from sales revenue, not cost of sales."""
+        income_df = pd.DataFrame(
+            {"2025": [-581_615_796_000.0, 721_062_506_000.0]},
+            index=["Satışların Maliyeti (-)", "Satış Gelirleri"],
+        )
+
+        revenue = provider._get_first_available_value(
+            income_df,
+            provider.REVENUE_LABELS,
+            "2025",
+        )
+
+        assert revenue == 721_062_506_000.0
+
+    def test_net_income_selector_does_not_match_genel_yonetim(self, provider):
+        """Net income should not match the 'net' substring inside 'Yönetim'."""
+        income_df = pd.DataFrame(
+            {"2025": [-14_198_680_000.0, 18_632_108_000.0, 18_735_256_000.0]},
+            index=[
+                "Genel Yönetim Giderleri (-)",
+                "Ana Ortaklık Payları",
+                "DÖNEM KARI (ZARARI)",
+            ],
+        )
+
+        net_income = provider._get_first_available_value(
+            income_df,
+            provider.NET_INCOME_LABELS,
+            "2025",
+        )
+
+        assert net_income == 18_632_108_000.0
+
+    def test_bank_net_income_selector_accepts_prefixed_ufrs_label(self, provider):
+        """Bank net income should match the full UFRS label from Is Yatirim."""
+        income_df = pd.DataFrame(
+            {"2025": [101_215_006_000.0, 57_247_061_000.0]},
+            index=[
+                "III. NET FAİZ GELİRİ/GİDERİ (I - II)",
+                "XXIII. NET DÖNEM KARI/ZARARI (XVII+XXII)",
+            ],
+        )
+
+        net_income = provider._get_first_available_value(
+            income_df,
+            provider.NET_INCOME_LABELS,
+            "2025",
+        )
+
+        assert net_income == 57_247_061_000.0

@@ -89,6 +89,7 @@ async def generate_response(
     understanding: QueryUnderstandingResult,
     retrieval: RetrievalAgentResult,
     memory_context: str = "",
+    structured_financial_context: str = "",
     http_client: httpx.AsyncClient | None = None,
 ) -> RAGResponse:
     """Generate RAG response with source citations.
@@ -98,6 +99,7 @@ async def generate_response(
         understanding: Query understanding result
         retrieval: Retrieval result with chunks and sources
         memory_context: Recent chat history formatted as text
+        structured_financial_context: Verified metrics loaded from structured DB
         http_client: Optional httpx AsyncClient
 
     Returns:
@@ -144,6 +146,7 @@ async def generate_response(
         document_type=understanding.document_type.value,
         intent=understanding.intent.value,
         memory_context=memory_context or "Önceki konuşma yok.",
+        structured_financial_context=structured_financial_context or "YAPILANDIRILMIS FINANSAL VERI YOK.",
         context_chunks=context_text,
         insufficient_context="hayır" if retrieval.has_sufficient_context else "evet",
         confidence=f"{retrieval.retrieval_confidence:.2f}",

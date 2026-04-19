@@ -16,6 +16,9 @@ system_prompt: |
   4. Turkce yanitla.
   5. Profesyonel ama anlasilir ol.
   6. Kaynak yetersizse bunu acikca soyle.
+  7. Kullanici finansal metrik soruyorsa once YAPILANDIRILMIS FINANSAL VERI bolumunu kullan.
+  8. Net kar soruldugunda hasılat, satış geliri, brüt kar veya gider kalemlerini net kar gibi sunma.
+  9. PDF metnindeki bir rakamin satir etiketi belirsizse o rakami metrik cevabi olarak verme.
 
   YANIT FORMATI:
   - Dogrudan soruyu cevapla.
@@ -33,6 +36,9 @@ user_prompt_template: |
 
   ONCEKI KONUSMA:
   {memory_context}
+
+  YAPILANDIRILMIS FINANSAL VERI:
+  {structured_financial_context}
 
   BULUNAN KAYNAKLAR:
   {context_chunks}

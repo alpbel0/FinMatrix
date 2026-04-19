@@ -252,10 +252,12 @@ class TestGenerateResponse:
                 understanding=understanding,
                 retrieval=retrieval,
                 memory_context="Kullanıcı: Önceki soru",
+                structured_financial_context="DOGRULANMIS DB METRIKLERI - THYAO",
                 http_client=mock_client,
             )
 
         assert captured_kwargs["memory_context"] == "Kullanıcı: Önceki soru"
+        assert captured_kwargs["structured_financial_context"] == "DOGRULANMIS DB METRIKLERI - THYAO"
 
     @pytest.mark.asyncio
     async def test_low_confidence_note(self):

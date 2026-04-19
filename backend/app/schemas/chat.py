@@ -11,11 +11,12 @@ Key models:
 - RAGResponse: Full RAG pipeline response
 """
 
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel
 
 from app.schemas.enums import DocumentType, QueryIntent, QueryType
+from app.services.data.provider_models import PeriodType
 
 
 # ============================================================================
@@ -169,3 +170,59 @@ class TextAnalysisResult(BaseModel):
     insufficient_context: bool = False
     confidence_note: str | None = None
     retrieval_confidence: float = 0.0
+
+
+# ============================================================================
+# Numerical Analysis Schemas (Code Executor — Task 6.3)
+# ============================================================================
+
+
+class FinancialMetricSnapshot(BaseModel):
+    """Single-period financial metrics for one stock."""
+
+    symbol: str
+    period_type: PeriodType
+    statement_date: date
+    revenue: float | None = None
+    net_income: float | None = None
+    total_assets: float | None = None
+    total_equity: float | None = None
+    net_profit_growth: float | None = None
+    roe: float | None = None
+    debt_to_equity: float | None = None
+    pe_ratio: float | None = None
+    source: str = "borsapy"
+
+
+class ComparisonTableRow(BaseModel):
+    """A single metric row in a multi-symbol comparison table."""
+
+    metric: str
+    values: dict[str, float | None]  # {symbol: value}
+
+
+class ChartSeries(BaseModel):
+    """A named time-series for chart rendering."""
+
+    name: str
+    data: list[dict]  # list of {"date": date, "value": float}
+
+
+class ChartPayload(BaseModel):
+    """Chart definition payload for frontend rendering."""
+
+    type: str = "line"
+    title: str
+    series: list[ChartSeries] = []
+
+
+class NumericalAnalysisResult(BaseModel):
+    """Code executor output for numerical / financial queries."""
+
+    symbols: list[str]
+    metrics: list[FinancialMetricSnapshot]
+    comparison_table: list[ComparisonTableRow] | None = None
+    chart: ChartPayload | None = None
+    warnings: list[str] = []
+    data_sources: list[str] = []
+    insufficient_data: bool = False

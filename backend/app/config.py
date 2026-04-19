@@ -40,11 +40,12 @@ class Settings(BaseSettings):
     chroma_collection_name: str = "kap_documents"
 
     # LLM Settings for Agents
-    query_understanding_model: str = "google/gemma-4-26b-a4b-it:free"
+    query_understanding_model: str = "google/gemini-2.5-pro"
     query_rewrite_model: str = "google/gemma-4-26b-a4b-it:free"  # Same model, optional usage
     response_agent_model: str = "google/gemini-3.1-flash-lite-preview"
-    query_classifier_model: str = "google/gemma-4-31b-it:free"
+    query_classifier_model: str = "google/gemini-2.0-flash-lite-001"
     query_classifier_fallback_model: str = "google/gemma-4-26b-a4b-it:free"
+    orchestrator_model: str = "google/gemma-4-31b-it"
     llm_timeout: float = 60.0
     llm_max_tokens: int = 2048
     llm_temperature: float = 0.7

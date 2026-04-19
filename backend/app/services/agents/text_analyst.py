@@ -1,4 +1,4 @@
-"""CrewAI-ready text analyst wrapper around the existing RAG text flow."""
+"""CrewAI-ready text analyst wrapper around the document RAG text flow."""
 
 import re
 from typing import Any
@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.schemas.chat import TextAnalysisResult
 from app.services.agents.crewai_adapter import create_agent_or_spec
-from app.services.chat_rag_service import run_chat_pipeline
+from app.services.chat_rag_service import run_document_pipeline
 
 
 def build_text_analyst_agent() -> Any:
@@ -62,7 +62,7 @@ async def run_text_analysis(
     pipeline owns a bounded HTTP client internally.
     """
     _ = http_client
-    pipeline_result = await run_chat_pipeline(
+    pipeline_result = await run_document_pipeline(
         db=db,
         user_id=user_id,
         session_id=session_id,
