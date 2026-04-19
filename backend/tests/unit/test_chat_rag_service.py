@@ -164,6 +164,7 @@ class TestCreateChatSession:
     @pytest.mark.asyncio
     async def test_create_with_title(self):
         db = AsyncMock()
+        db.add = MagicMock()
         db.commit = AsyncMock()
         db.refresh = AsyncMock()
 
@@ -176,6 +177,7 @@ class TestCreateChatSession:
     @pytest.mark.asyncio
     async def test_create_without_title(self):
         db = AsyncMock()
+        db.add = MagicMock()
         db.commit = AsyncMock()
         db.refresh = AsyncMock()
 
@@ -212,6 +214,7 @@ class TestSaveMessage:
     @pytest.mark.asyncio
     async def test_save_user_message(self):
         db = AsyncMock()
+        db.add = MagicMock()
         db.commit = AsyncMock()
         db.refresh = AsyncMock()
 
@@ -225,6 +228,7 @@ class TestSaveMessage:
     @pytest.mark.asyncio
     async def test_save_assistant_message_with_sources(self):
         db = AsyncMock()
+        db.add = MagicMock()
         db.commit = AsyncMock()
         db.refresh = AsyncMock()
         sources = [{"kap_report_id": 1, "stock_symbol": "THYAO"}]

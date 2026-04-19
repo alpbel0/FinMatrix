@@ -3,7 +3,9 @@ name = "finmatrix-backend"
 version = "0.1.0"
 description = "FinMatrix backend"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "crewai>=1.14.1",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

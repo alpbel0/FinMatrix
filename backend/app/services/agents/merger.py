@@ -134,4 +134,6 @@ def merge_analysis_results(
         document_type=document_type,
         confidence_note=confidence_note,
         insufficient_context=insufficient_context,
+        chart=numerical_result.chart if numerical_result else None,
+        comparison_table=numerical_result.comparison_table if numerical_result else None,
     )

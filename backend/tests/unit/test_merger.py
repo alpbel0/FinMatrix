@@ -125,3 +125,89 @@ class TestMergeAnalysisResults:
 
         assert result.insufficient_context is True
         assert result.confidence_note is not None
+
+    def test_numerical_only_no_text(self):
+        """Test merge when only numerical analysis is available."""
+        numerical = NumericalAnalysisResult(
+            symbols=["THYAO"],
+            metrics=[
+                FinancialMetricSnapshot(
+                    symbol="THYAO",
+                    period_type=PeriodType.ANNUAL,
+                    statement_date="2025-12-31",
+                    net_income=150.0,
+                    roe=0.22,
+                    source="borsapy",
+                )
+            ],
+            warnings=[],
+            data_sources=["income_statements"],
+            insufficient_data=False,
+        )
+
+        result = merge_analysis_results(
+            classification=_classification(needs_text=False, needs_numerical=True),
+            resolved_symbol="THYAO",
+            numerical_result=numerical,
+            text_result=None,
+        )
+
+        assert "THYAO" in result.answer_text
+        assert "Net Kar" in result.answer_text
+        assert result.stock_symbol == "THYAO"
+        assert result.sources == []
+
+    def test_text_only_no_numerical(self):
+        """Test merge when only text analysis is available."""
+        source = SourceItem(
+            kap_report_id=1,
+            stock_symbol="ASELS",
+            report_title="ASELS Report",
+            published_at=None,
+            filing_type="FAR",
+            source_url="https://kap.org/1",
+            chunk_preview="Preview text",
+        )
+        text = TextAnalysisResult(
+            answer_text="ASELS faaliyet raporu analizi tamamlandi.",
+            key_points=["Onemli bulgu 1", "Onemli bulgu 2"],
+            sources=[source],
+            stock_symbol="ASELS",
+            document_type=DocumentType.FAR,
+            insufficient_context=False,
+            retrieval_confidence=0.82,
+        )
+
+        result = merge_analysis_results(
+            classification=_classification(needs_text=True, needs_numerical=False),
+            resolved_symbol="ASELS",
+            numerical_result=None,
+            text_result=text,
+        )
+
+        assert "ASELS" in result.answer_text
+        assert "Belge Bazli Analiz" in result.answer_text
+        assert result.sources == [source]
+
+    def test_empty_answer_parts_handling(self):
+        """Test handling when both results produce empty content."""
+        numerical = NumericalAnalysisResult(
+            symbols=["THYAO"],
+            metrics=[],
+            comparison_table=None,
+            chart=None,
+            warnings=[],
+            data_sources=[],
+            insufficient_data=True,
+        )
+
+        result = merge_analysis_results(
+            classification=_classification(needs_text=False, needs_numerical=True),
+            resolved_symbol="THYAO",
+            numerical_result=numerical,
+            text_result=None,
+        )
+
+        # Should still produce some output, not empty
+        assert result.answer_text != ""
+        assert result.insufficient_context is True

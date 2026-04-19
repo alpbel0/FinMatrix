@@ -53,6 +53,62 @@ class SessionResponse(BaseModel):
 
 
 # ============================================================================
+# Numerical Analysis Schemas (Code Executor — Task 6.3)
+# ============================================================================
+
+
+class FinancialMetricSnapshot(BaseModel):
+    """Single-period financial metrics for one stock."""
+
+    symbol: str
+    period_type: PeriodType
+    statement_date: date
+    revenue: float | None = None
+    net_income: float | None = None
+    total_assets: float | None = None
+    total_equity: float | None = None
+    net_profit_growth: float | None = None
+    roe: float | None = None
+    debt_to_equity: float | None = None
+    pe_ratio: float | None = None
+    source: str = "borsapy"
+
+
+class ComparisonTableRow(BaseModel):
+    """A single metric row in a multi-symbol comparison table."""
+
+    metric: str
+    values: dict[str, float | None]  # {symbol: value}
+
+
+class ChartSeries(BaseModel):
+    """A named time-series for chart rendering."""
+
+    name: str
+    data: list[dict]  # list of {"date": date, "value": float}
+
+
+class ChartPayload(BaseModel):
+    """Chart definition payload for frontend rendering."""
+
+    type: str = "line"
+    title: str
+    series: list[ChartSeries] = []
+
+
+class NumericalAnalysisResult(BaseModel):
+    """Code executor output for numerical / financial queries."""
+
+    symbols: list[str]
+    metrics: list[FinancialMetricSnapshot]
+    comparison_table: list[ComparisonTableRow] | None = None
+    chart: ChartPayload | None = None
+    warnings: list[str] = []
+    data_sources: list[str] = []
+    insufficient_data: bool = False
+
+
+# ============================================================================
 # RAG Pipeline Schemas
 # ============================================================================
 
@@ -131,6 +187,8 @@ class RAGResponse(BaseModel):
         document_type: Document type used for filtering
         confidence_note: Optional confidence note if low confidence
         insufficient_context: True if context was insufficient
+        chart: Optional chart payload for inline rendering
+        comparison_table: Optional comparison table for multi-symbol queries
     """
 
     answer_text: str
@@ -139,6 +197,8 @@ class RAGResponse(BaseModel):
     document_type: DocumentType = DocumentType.ANY
     confidence_note: str | None = None
     insufficient_context: bool = False
+    chart: ChartPayload | None = None
+    comparison_table: list[ComparisonTableRow] | None = None
 
 
 # ============================================================================
@@ -170,59 +230,3 @@ class TextAnalysisResult(BaseModel):
     insufficient_context: bool = False
     confidence_note: str | None = None
     retrieval_confidence: float = 0.0
-
-
-# ============================================================================
-# Numerical Analysis Schemas (Code Executor — Task 6.3)
-# ============================================================================
-
-
-class FinancialMetricSnapshot(BaseModel):
-    """Single-period financial metrics for one stock."""
-
-    symbol: str
-    period_type: PeriodType
-    statement_date: date
-    revenue: float | None = None
-    net_income: float | None = None
-    total_assets: float | None = None
-    total_equity: float | None = None
-    net_profit_growth: float | None = None
-    roe: float | None = None
-    debt_to_equity: float | None = None
-    pe_ratio: float | None = None
-    source: str = "borsapy"
-
-
-class ComparisonTableRow(BaseModel):
-    """A single metric row in a multi-symbol comparison table."""
-
-    metric: str
-    values: dict[str, float | None]  # {symbol: value}
-
-
-class ChartSeries(BaseModel):
-    """A named time-series for chart rendering."""
-
-    name: str
-    data: list[dict]  # list of {"date": date, "value": float}
-
-
-class ChartPayload(BaseModel):
-    """Chart definition payload for frontend rendering."""
-
-    type: str = "line"
-    title: str
-    series: list[ChartSeries] = []
-
-
-class NumericalAnalysisResult(BaseModel):
-    """Code executor output for numerical / financial queries."""
-
-    symbols: list[str]
-    metrics: list[FinancialMetricSnapshot]
-    comparison_table: list[ComparisonTableRow] | None = None
-    chart: ChartPayload | None = None
-    warnings: list[str] = []
-    data_sources: list[str] = []
-    insufficient_data: bool = False

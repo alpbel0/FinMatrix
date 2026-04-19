@@ -113,3 +113,160 @@ class TestClassifyQuery:
 
         assert result.query_type == QueryType.GENERAL
         assert result.confidence == 0.4
+
+    @pytest.mark.asyncio
+    async def test_llm_classification_text_analysis(self):
+        """Test LLM path for text analysis query."""
+        from tests.mocks import MockOpenRouterClient, create_query_classifier_success_response
+
+        response = create_query_classifier_success_response(
+            query_type="text_analysis",
+            symbols=["THYAO"],
+            needs_text_analysis=True,
+        )
+        mock_client = MockOpenRouterClient(responses=[response])
+
+        with patch("app.services.agents.query_classifier.load_prompt") as mock_load:
+            mock_load.return_value = MagicMock(
+                system_prompt="system",
+                temperature=0.1,
+                max_tokens=700,
+                format_user_prompt=lambda **kwargs: kwargs["query"],
+            )
+            result = await classify_query("THYAO faaliyet raporu ne diyor?", http_client=mock_client)
+
+        assert result.query_type == QueryType.TEXT_ANALYSIS
+        assert result.symbols == ["THYAO"]
+        assert result.needs_text_analysis is True
+
+    @pytest.mark.asyncio
+    async def test_llm_classification_numerical(self):
+        """Test LLM path for numerical analysis query."""
+        from tests.mocks import MockOpenRouterClient, create_query_classifier_success_response
+
+        response = create_query_classifier_success_response(
+            query_type="numerical_analysis",
+            symbols=["GARAN"],
+            needs_numerical_analysis=True,
+        )
+        mock_client = MockOpenRouterClient(responses=[response])
+
+        with patch("app.services.agents.query_classifier.load_prompt") as mock_load:
+            mock_load.return_value = MagicMock(
+                system_prompt="system",
+                temperature=0.1,
+                max_tokens=700,
+                format_user_prompt=lambda **kwargs: kwargs["query"],
+            )
+            result = await classify_query("GARAN net kar ne?", http_client=mock_client)
+
+        assert result.query_type == QueryType.NUMERICAL_ANALYSIS
+        assert "GARAN" in result.symbols
+
+    @pytest.mark.asyncio
+    async def test_llm_classification_comparison(self):
+        """Test LLM path for comparison query."""
+        from tests.mocks import MockOpenRouterClient, create_query_classifier_success_response
+
+        response = create_query_classifier_success_response(
+            query_type="comparison",
+            symbols=["THYAO", "ASELS"],
+            needs_text_analysis=True,
+            needs_numerical_analysis=True,
+            needs_comparison=True,
+        )
+        mock_client = MockOpenRouterClient(responses=[response])
+
+        with patch("app.services.agents.query_classifier.load_prompt") as mock_load:
+            mock_load.return_value = MagicMock(
+                system_prompt="system",
+                temperature=0.1,
+                max_tokens=700,
+                format_user_prompt=lambda **kwargs: kwargs["query"],
+            )
+            result = await classify_query("THYAO ile ASELS karsilastir", http_client=mock_client)
+
+        assert result.query_type == QueryType.COMPARISON
+        assert "THYAO" in result.symbols
+        assert "ASELS" in result.symbols
+        assert result.needs_comparison is True
+
+    @pytest.mark.asyncio
+    async def test_llm_retry_with_fallback_model(self):
+        """Test fallback model retry behavior."""
+        from tests.mocks import (
+            MockOpenRouterClient,
+            MockOpenRouterResponse,
+            create_query_classifier_success_response,
+        )
+
+        first_response = MockOpenRouterResponse(content="not valid json {{{")
+        second_response = create_query_classifier_success_response(
+            query_type="text_analysis",
+            symbols=["THYAO"],
+            needs_text_analysis=True,
+        )
+        mock_client = MockOpenRouterClient(responses=[first_response, second_response])
+
+        with patch("app.services.agents.query_classifier.load_prompt") as mock_load:
+            mock_load.return_value = MagicMock(
+                system_prompt="system",
+                temperature=0.1,
+                max_tokens=700,
+                format_user_prompt=lambda **kwargs: kwargs["query"],
+            )
+            # Use ambiguous query that triggers LLM path (confidence < 0.85)
+            result = await classify_query("thy tarafı nasıl", http_client=mock_client)
+
+        assert len(mock_client.calls) == 2
+
+    @pytest.mark.asyncio
+    async def test_llm_invalid_json_handling(self):
+        """Test graceful handling of invalid JSON from LLM."""
+        from tests.mocks import MockOpenRouterClient, MockOpenRouterResponse
+
+        mock_client = MockOpenRouterClient(
+            responses=[MockOpenRouterResponse(content="not valid json {{{")]
+        )
+
+        with patch("app.services.agents.query_classifier.load_prompt") as mock_load:
+            mock_load.return_value = MagicMock(
+                system_prompt="system",
+                temperature=0.1,
+                max_tokens=700,
+                format_user_prompt=lambda **kwargs: kwargs["query"],
+            )
+            result = await classify_query("thy tarafi", http_client=mock_client)
+
+        assert result.query_type == QueryType.GENERAL
+        assert result.confidence == 0.4
+
+    @pytest.mark.asyncio
+    async def test_classify_query_with_http_timeout(self):
+        """Test timeout handling in LLM path."""
+        import httpx
+
+        mock_client = AsyncMock()
+        mock_client.post.side_effect = httpx.TimeoutException("timeout")
+
+        with patch("app.services.agents.query_classifier.load_prompt") as mock_load:
+            mock_load.return_value = MagicMock(
+                system_prompt="system",
+                temperature=0.1,
+                max_tokens=700,
+                format_user_prompt=lambda **kwargs: kwargs["query"],
+            )
+            result = await classify_query("thy tarafi", http_client=mock_client)
+
+        assert result.query_type == QueryType.GENERAL
+        assert result.confidence == 0.4
+
+    @pytest.mark.asyncio
+    async def test_classify_query_confidence_threshold(self):
+        """Test confidence threshold - queries above 0.85 skip LLM."""
+        mock_client = AsyncMock()
+
+        result = await classify_query("THYAO net kar nasil?", http_client=mock_client)
+
+        assert result.confidence >= 0.85
+        mock_client.post.assert_not_called()

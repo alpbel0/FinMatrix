@@ -4,10 +4,13 @@ Provides mock implementations for:
 - KAP providers (borsapy, pykap, kap_sdk)
 - Provider-agnostic KAP fixtures (mock_kap)
 - ChromaDB embedding storage (mock_chromadb)
+- OpenRouter API calls (mock_openrouter)
+- CrewAI framework (mock_crewai)
 
 Usage:
     from tests.mocks import MockTicker, MockBISTCompany, MockChromaClient
     from tests.mocks import create_financial_report_filing, create_mock_collection_with_documents
+    from tests.mocks import MockOpenRouterClient, MockCrewAI
 """
 
 # Existing provider mocks
@@ -72,6 +75,31 @@ from tests.mocks.mock_chromadb import (
     DEFAULT_EMBEDDING_DIMENSION,
 )
 
+# OpenRouter API mock for Week 6 (Task 6.6)
+from tests.mocks.mock_openrouter import (
+    MockOpenRouterResponse,
+    MockOpenRouterClient,
+    create_mock_openrouter_client,
+    create_query_classifier_success_response,
+    create_query_classifier_failure_response,
+    create_text_analysis_response,
+    create_openrouter_timeout_response,
+    create_openrouter_rate_limit_response,
+    MockOpenRouterClientPresets,
+)
+
+# CrewAI framework mock for Week 6 (Task 6.6)
+from tests.mocks.mock_crewai import (
+    MockCrewAgent,
+    MockCrewAgentSpec,
+    MockCrewAI,
+    create_mock_agent,
+    create_mock_spec,
+    mock_create_agent_or_spec,
+    MockCrewTool,
+    create_mock_tool,
+)
+
 __all__ = [
     # borsapy mocks
     "MockTicker",
@@ -122,4 +150,23 @@ __all__ = [
     "create_mock_chroma_client",
     "create_mock_collection_with_documents",
     "DEFAULT_EMBEDDING_DIMENSION",
+    # mock_openrouter (Task 6.6)
+    "MockOpenRouterResponse",
+    "MockOpenRouterClient",
+    "create_mock_openrouter_client",
+    "create_query_classifier_success_response",
+    "create_query_classifier_failure_response",
+    "create_text_analysis_response",
+    "create_openrouter_timeout_response",
+    "create_openrouter_rate_limit_response",
+    "MockOpenRouterClientPresets",
+    # mock_crewai (Task 6.6)
+    "MockCrewAgent",
+    "MockCrewAgentSpec",
+    "MockCrewAI",
+    "create_mock_agent",
+    "create_mock_spec",
+    "mock_create_agent_or_spec",
+    "MockCrewTool",
+    "create_mock_tool",
 ]

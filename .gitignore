@@ -40,3 +40,4 @@ Thumbs.db
 
 # Local runtime stores
 backend/.tmp/
+.bg-shell/

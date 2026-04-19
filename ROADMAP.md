@@ -784,31 +784,31 @@ FinMatrix/
 
 **Tarih:** ___________
 **Hedef:** CrewAI tabanli agent koordinasyonunu kurmak, sayisal analiz akisini eklemek ve chat deneyimini daha analist seviyesine tasimak
-**Durum:** Planned
+**Durum:** Completed
 
 ### Week 6 Mimari Karari: Hibrit CrewAI
 
 Bu hafta itibariyla agent orchestration katmani CrewAI ile kurulacak. Ancak tum is mantigi CrewAI icine gomulmeyecek.
 
 **CrewAI olacak katmanlar:**
-- [ ] Query classifier agent
-- [ ] Text analyst agent
-- [ ] Code executor agent
-- [ ] Results merger agent
-- [ ] Orchestrator / crew wiring
+- [x] Query classifier agent
+- [x] Text analyst agent
+- [x] Code executor agent
+- [x] Results merger agent
+- [x] Orchestrator / crew wiring
 
 **Custom kalacak katmanlar:**
-- [ ] Retrieval servisleri (`rag/retriever.py`, `services/agents/retrieval_agent.py`)
-- [ ] Symbol resolution ve enum normalization
-- [ ] Deterministic finansal hesaplar ve metric helper'lari
-- [ ] Chart data generation
-- [ ] DB yazimlari, API response schema'lari ve trace logging
-- [ ] Frontend render mantigi
+- [x] Retrieval servisleri (`rag/retriever.py`, `services/agents/retrieval_agent.py`)
+- [x] Symbol resolution ve enum normalization
+- [x] Deterministic finansal hesaplar ve metric helper'lari
+- [x] Chart data generation
+- [x] DB yazimlari, API response schema'lari ve trace logging
+- [x] Frontend render mantigi
 
 **Temel ilke:**
-- [ ] LLM agent karar verir, custom kod icra eder
-- [ ] Sayisal hesaplar LLM'e birakilmaz
-- [ ] Retrieval ve persistence framework bagimsiz kalir
+- [x] LLM agent karar verir, custom kod icra eder
+- [x] Sayisal hesaplar LLM'e birakilmaz
+- [x] Retrieval ve persistence framework bagimsiz kalir
 
 ### Task 6.1: CrewAI Query Classifier
 
@@ -873,7 +873,7 @@ Bu hafta itibariyla agent orchestration katmani CrewAI ile kurulacak. Ancak tum 
 - [x] Source referanslarini deduplicate et
 - [x] Comparison table payload'i hazirla
 - [x] Chart varsa final response schema'sina ekle
-- [x] Suggested questions uret
+- [x] Suggested questions icin frontend'e uygun sabit button akisini destekle
 - [x] Final output'u frontend dostu structured response'a cevir
 
 ### Task 6.5: CrewAI Orchestrator
@@ -892,36 +892,36 @@ Bu hafta itibariyla agent orchestration katmani CrewAI ile kurulacak. Ancak tum 
 ### Task 6.6: Agent Tests ve Mock Katmani
 
 **Tahmini Sure:** 3 saat
-**Durum:** Planned
+**Durum:** ✅ Completed
 
-- [ ] `tests/mocks/mock_openrouter.py`
-- [ ] `tests/mocks/mock_crewai.py`
-- [ ] `tests/unit/test_query_classifier.py`
-- [ ] `tests/unit/test_text_analyst.py`
-- [ ] `tests/unit/test_code_executor.py`
-- [ ] `tests/unit/test_merger.py`
-- [ ] `tests/unit/test_orchestrator.py`
-- [ ] Agent trace/log ciktisini test et
+- [x] `tests/mocks/mock_openrouter.py`
+- [x] `tests/mocks/mock_crewai.py`
+- [x] `tests/unit/test_query_classifier.py` (17 tests)
+- [x] `tests/unit/test_text_analyst.py` (8 tests)
+- [x] `tests/unit/test_code_executor.py` (40 tests)
+- [x] `tests/unit/test_merger.py` (6 tests)
+- [x] `tests/unit/test_orchestrator.py` (8 tests)
+- [x] `tests/unit/test_agent_trace_logging.py` (15 tests)
 
 ### Task 6.7: Chat UX ve Inline Chart
 
 **Tahmini Sure:** 3 saat
-**Durum:** Planned
+**Durum:** ✅ Completed
 
-- [ ] Chat cevabindaki chart alanini frontend'de render et
-- [ ] Source transparency UI'sini son sekline yaklastir
-- [ ] Suggested questions alanini ekle
-- [ ] Comparison table varsa sag panel veya inline goster
-- [ ] Chat gecmisinin temel UX akisini tamamla
-- [ ] Numerical/text/comparison cevap tipleri icin uygun render farklarini ekle
+- [x] Chat cevabindaki chart alanini frontend'de render et
+- [x] Source transparency UI'sini son sekline yaklastir
+- [x] Suggested questions alanini ekle (frontend'de sabit 3 button, sticky behavior)
+- [x] Comparison table varsa inline HTML tablo olarak goster
+- [x] Chat gecmisinin temel UX akisini tamamla
+- [x] Numerical/text/comparison cevap tipleri icin uygun render farklarini ekle
 
 ### Week 6 Sonunda Beklenen Cikti
 
-- [ ] Chat artik sadece belge cevabi degil, soru tipine gore agent secen bir sisteme donusmus olacak
-- [ ] Sayisal sorular deterministic hesaplarla cevaplanacak
-- [ ] Karsilastirma sorulari tek cevapta analiz + tablo + chart ile donulebilecek
-- [ ] CrewAI, agent koordinasyon katmaninda aktif olarak kullaniliyor olacak
-- [ ] Retrieval, DB, trace ve chart payload katmanlari halen custom ve debug edilebilir kalacak
+- [x] Chat artik sadece belge cevabi degil, soru tipine gore agent secen bir sisteme donusmus olacak
+- [x] Sayisal sorular deterministic hesaplarla cevaplanacak
+- [x] Karsilastirma sorulari tek cevapta analiz + tablo + chart ile donulebilecek
+- [x] CrewAI, agent koordinasyon katmaninda aktif olarak kullaniliyor olacak
+- [x] Retrieval, DB, trace ve chart payload katmanlari halen custom ve debug edilebilir kalacak
 
 ---
 

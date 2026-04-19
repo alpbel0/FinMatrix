@@ -1,7 +1,9 @@
 """Unit tests for chat trace service."""
 
-import pytest
 from unittest.mock import AsyncMock
+from unittest.mock import MagicMock
+
+import pytest
 
 from app.models.chat_trace import ChatTrace
 from app.schemas.chat import QueryUnderstandingResult, RAGResponse, RetrievalAgentResult, SourceItem
@@ -18,6 +20,7 @@ class TestCreateChatTrace:
     @pytest.mark.asyncio
     async def test_create_chat_trace(self):
         db = AsyncMock()
+        db.add = MagicMock()
         db.commit = AsyncMock()
         db.refresh = AsyncMock()
 
