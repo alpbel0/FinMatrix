@@ -15,7 +15,7 @@
 | Phase 1 | Week 1-2 | Temel iskelet, database, UI shell, auth temeli | **✅ Completed** |
 | Phase 2 | Week 3-4 | Veri kaynaklari + dashboard/watchlist/news slice'lari | **✅ Completed** |
 | Phase 3 | Week 5-6 | RAG, AI chat ve frontend chat deneyimi | **✅ Completed** |
-| Phase 4 | Week 7 | LangGraph Bridge - Agent Graph Mimarisi | Planned |
+| Phase 4 | Week 7 | LangGraph Bridge - Agent Graph Mimarisi | **In Progress** |
 | Phase 5 | Week 8 | Entegrasyon derinlestirme ve admin/api tamamlama | Planned |
 | Phase 6 | Week 9 | EvalOps, Judge ve guvenilirlik | Planned |
 | Phase 7 | Week 10 | Telegram bot ve notification sistemi | Planned |
@@ -970,50 +970,51 @@ Bu hafta itibariyla agent orchestration katmani CrewAI ile kurulacak. Ancak tum 
 ### Task 7.3: Ince Dugumler - Thin Nodes (nodes.py)
 
 **Tahmini Sure:** 3 saat
-**Durum:** Planned
+**Durum:** ✅ Completed
 
 **Yardimci fonksiyonlar:**
-- [ ] `_start_trace(node_name: str) -> float` yaz: `time.time()` ile baslangic zamanini don
-- [ ] `_make_entry(node: str, start: float, status: str, reason_code: str | None) -> NodeTraceEntry` yaz
-- [ ] Her node'un yeni bir `dict` ile state donerken `node_history` listesini extend ettigini dogrula
+- [x] `_start_trace() -> float` — `time.time()` ile baslangic zamanini doner
+- [x] `_make_entry(node, start, status, reason_code) -> NodeTraceEntry` — NodeTraceEntry olusturur, duration_ms hesaplar
+- [x] Her node yeni bir `dict` ile partial state dondurur; `node_history` Annotated[list, operator.add] ile dogru ekleme yapar
 
 **classify_query_node:**
-- [ ] `classify_query` servisini `state["query"]` ile cagir
-- [ ] Sonucu `classification` alanina yaz
-- [ ] Basarisiz olursa: `fallback_reason = "classification_failed"`, status="error"
-- [ ] `node_history`'ye NodeTraceEntry ekle (her iki durumda da)
-- [ ] Return: degisen sadece `classification`, `fallback_reason`, `node_history`
+- [x] `classify_query(state["query"], http_client=state.get("http_client"))` cagir
+- [x] Sonucu `classification` alanina yazar
+- [x] Basarisiz olursa: `classification=None`, `fallback_reason="classification_failed"`, status="error"
+- [x] `node_history`'ye NodeTraceEntry ekler (her durumda)
 
 **resolve_symbol_node:**
-- [ ] `classification` None ise veya `classification.symbols` bos ise: no-op (status="skipped")
-- [ ] `resolve_symbol(db, classification.symbols[0])` cagir
-- [ ] Sonucu `resolved_symbol` alanina yaz
-- [ ] Sembol cozulemezse: `fallback_reason = "symbol_not_resolved"`, status="error"
-- [ ] `node_history`'ye NodeTraceEntry ekle
+- [x] `classification` None veya `symbols` bos ise: `resolved_symbol=None`, status="skipped", reason_code="no_symbols"
+- [x] `async with AsyncSessionLocal() as db:` ile DB session yonetimi
+- [x] `resolve_symbol(db, classification.symbols[0])` cagir
+- [x] Symbol bulunursa: `resolved_symbol=symbol`, status="ok"
+- [x] Symbol bulunamazsa (None): `resolved_symbol=None`, status="skipped", reason_code="symbol_not_found"
+- [x] Hata durumunda: `fallback_reason="symbol_resolve_error"`, status="error"
 
 **numerical_analysis_node:**
-- [ ] **KRITIK**: `run_numerical_analysis`'e `state["resolved_symbol"]`'i parametre olarak gec
-- [ ] `code_executor.py` icindeki ic resolve_symbol cagrisini bypass etmek icin `symbols=[resolved_symbol]` kullan
-- [ ] `numerical_result` alanina yaz
-- [ ] Hata durumunda: `fallback_reason = "numerical_failed"`, status="error"
-- [ ] `node_history`'ye NodeTraceEntry ekle
+- [x] `resolved_symbol` None ise: `numerical_result=None`, status="skipped", reason_code="no_symbol"
+- [x] `symbols=[resolved_symbol]` bypass parametresi ile `run_numerical_analysis` cagir (ic resolve_symbol cagrisini önler)
+- [x] `needs_chart=classification.needs_chart` bilgisini tasiyor
+- [x] Hata durumunda: `numerical_result=None`, status="error", reason_code="numerical_failed"
 
 **text_analysis_node:**
-- [ ] `run_text_analysis` servisini cagir
-- [ ] `text_result` alanina yaz
-- [ ] Hata durumunda: `fallback_reason = "text_failed"`, status="error"
-- [ ] `node_history`'ye NodeTraceEntry ekle
+- [x] `async with AsyncSessionLocal() as db:` ile DB session yonetimi
+- [x] `run_text_analysis(db=db, user_id=state["user_id"], session_id=state["session_id"], query=state["query"])` cagir
+- [x] Hata durumunda: `text_result=None`, status="error", reason_code="text_analysis_failed"
+- [x] Local import (`from app.services.agents.text_analyst import run_text_analysis`) ile circular dependency onlenir
 
 **merge_node:**
-- [ ] `merge_analysis_results(classification, resolved_symbol, numerical_result, text_result)` cagir
-- [ ] Sonucu `response` alanina yaz
-- [ ] `node_history`'ye NodeTraceEntry ekle
+- [x] `merge_analysis_results(classification, resolved_symbol, numerical_result, text_result)` cagir (sync, await yok)
+- [x] Hata durumunda: `response=None`, status="error", reason_code="merge_failed"
 
 **fallback_node:**
-- [ ] `run_document_pipeline(db, user_id, session_id, query)` cagir (mevcut RAG pipeline)
-- [ ] Sonucu `response` alanina yaz
-- [ ] `state["fallback_reason"]` degerini NodeTraceEntry'nin `reason_code`'una ekle
-- [ ] `node_history`'ye NodeTraceEntry ekle
+- [x] `async with AsyncSessionLocal() as db:` ile DB session yonetimi
+- [x] `run_document_pipeline(db, user_id, session_id, query)` cagir
+- [x] Basarili olursa: `response=pipeline_result.response`, reason_code=state["fallback_reason"]
+- [x] Hata durumunda: `response=None`, status="error", reason_code="fallback_failed"
+- [x] Local import (`from app.services.chat_rag_service import run_document_pipeline`) ile circular dependency onlenir
+
+**Test:** `tests/unit/test_graph_nodes.py` — 18 test, tamamı yeşil
 
 ---
 
