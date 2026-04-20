@@ -2,7 +2,7 @@
 
 > Proje: AI-Powered Stock Analysis Platform for BIST Investors
 > Baslangic: Nisan 2026
-> Tahmini Sure: 10 Hafta
+> Tahmini Sure: 11 Hafta
 > Yazar: Yigitalp (@alpbel0)
 > Gelistirme modeli: Local-first, Docker yok
 
@@ -13,12 +13,13 @@
 | Phase | Hafta | Odak | Durum |
 |---|---|---|---|
 | Phase 1 | Week 1-2 | Temel iskelet, database, UI shell, auth temeli | **✅ Completed** |
-| Phase 2 | Week 3-4 | Veri kaynaklari + dashboard/watchlist/news slice'lari | Planned |
-| Phase 3 | Week 5-6 | RAG, AI chat ve frontend chat deneyimi | Planned |
-| Phase 4 | Week 7 | Entegrasyon derinlestirme ve admin/api tamamlama | Planned |
-| Phase 5 | Week 8 | EvalOps, Judge ve guvenilirlik | Planned |
-| Phase 6 | Week 9 | Telegram bot ve notification sistemi | Planned |
-| Phase 7 | Week 10 | Test, deploy hazirligi ve polish | Planned |
+| Phase 2 | Week 3-4 | Veri kaynaklari + dashboard/watchlist/news slice'lari | **✅ Completed** |
+| Phase 3 | Week 5-6 | RAG, AI chat ve frontend chat deneyimi | **✅ Completed** |
+| Phase 4 | Week 7 | LangGraph Bridge - Agent Graph Mimarisi | Planned |
+| Phase 5 | Week 8 | Entegrasyon derinlestirme ve admin/api tamamlama | Planned |
+| Phase 6 | Week 9 | EvalOps, Judge ve guvenilirlik | Planned |
+| Phase 7 | Week 10 | Telegram bot ve notification sistemi | Planned |
+| Phase 8 | Week 11 | Test, deploy hazirligi ve polish | Planned |
 
 ---
 
@@ -925,15 +926,234 @@ Bu hafta itibariyla agent orchestration katmani CrewAI ile kurulacak. Ancak tum 
 
 ---
 
-# Phase 4 - Entegrasyon Derinlestirme
+# Phase 4 - LangGraph Bridge: Agent Graph Mimarisi
 
-## Week 7: API Bosluklari, Admin ve Capraz Sayfa Entegrasyonu
+## Week 7: Orchestrator'i LangGraph ile Yeniden Yaz
+
+**Tarih:** ___________
+**Hedef:** Mevcut if/else orchestrator mantigini tipli, izlenebilir ve genisletilebilir bir LangGraph state machine'e donusturmek
+**Durum:** In Progress
+
+---
+
+### Task 7.1: Altyapi ve Hazirlik
+
+**Tahmini Sure:** 1 saat
+**Durum:** ✅ Completed
+
+- [x] `langgraph>=0.2.0,<1.0.0` paketini `backend/requirements.txt` dosyasina ekle
+- [x] `langgraph` kurulumunu dogrula: `python -c "import langgraph"` basarili
+- [x] `backend/app/services/agents/graph/` klasorunu olustur
+- [x] `backend/app/services/agents/graph/__init__.py` dosyasini olustur (bos, sadece export icin)
+- [x] `backend/app/services/agents/graph/state.py` bos dosyasini olustur
+- [x] `backend/app/services/agents/graph/nodes.py` bos dosyasini olustur
+- [x] `backend/app/services/agents/graph/workflow.py` bos dosyasini olustur
+- [x] Mevcut `test_orchestrator.py`'deki 8 testin gectigini kaydet (baseline coverage)
+- [x] Mevcut `test_agent_trace_logging.py`'deki 15 testin gectigini kaydet (baseline coverage)
+
+---
+
+### Task 7.2: State Tasarimi (state.py)
+
+**Tahmini Sure:** 1.5 saat
+**Durum:** ✅ Completed
+
+**Implemente edilen:**
+- [x] `state.py` dosyasi dolu — `NodeTraceEntry` + `AgentState` TypedDict tanimlari
+- [x] `AgentState` 11 alan: query, user_id, session_id, http_client, classification, resolved_symbol, text_result, numerical_result, response, fallback_reason, node_history
+- [x] `node_history` icin `Annotated[list[NodeTraceEntry], operator.add]` parallel-safe reducer
+- [x] `graph/__init__.py` export eklendi
+- [x] `test_graph_state.py` — 11 test gecti (4 NodeTraceEntry + 7 AgentState)
+
+---
+
+### Task 7.3: Ince Dugumler - Thin Nodes (nodes.py)
+
+**Tahmini Sure:** 3 saat
+**Durum:** Planned
+
+**Yardimci fonksiyonlar:**
+- [ ] `_start_trace(node_name: str) -> float` yaz: `time.time()` ile baslangic zamanini don
+- [ ] `_make_entry(node: str, start: float, status: str, reason_code: str | None) -> NodeTraceEntry` yaz
+- [ ] Her node'un yeni bir `dict` ile state donerken `node_history` listesini extend ettigini dogrula
+
+**classify_query_node:**
+- [ ] `classify_query` servisini `state["query"]` ile cagir
+- [ ] Sonucu `classification` alanina yaz
+- [ ] Basarisiz olursa: `fallback_reason = "classification_failed"`, status="error"
+- [ ] `node_history`'ye NodeTraceEntry ekle (her iki durumda da)
+- [ ] Return: degisen sadece `classification`, `fallback_reason`, `node_history`
+
+**resolve_symbol_node:**
+- [ ] `classification` None ise veya `classification.symbols` bos ise: no-op (status="skipped")
+- [ ] `resolve_symbol(db, classification.symbols[0])` cagir
+- [ ] Sonucu `resolved_symbol` alanina yaz
+- [ ] Sembol cozulemezse: `fallback_reason = "symbol_not_resolved"`, status="error"
+- [ ] `node_history`'ye NodeTraceEntry ekle
+
+**numerical_analysis_node:**
+- [ ] **KRITIK**: `run_numerical_analysis`'e `state["resolved_symbol"]`'i parametre olarak gec
+- [ ] `code_executor.py` icindeki ic resolve_symbol cagrisini bypass etmek icin `symbols=[resolved_symbol]` kullan
+- [ ] `numerical_result` alanina yaz
+- [ ] Hata durumunda: `fallback_reason = "numerical_failed"`, status="error"
+- [ ] `node_history`'ye NodeTraceEntry ekle
+
+**text_analysis_node:**
+- [ ] `run_text_analysis` servisini cagir
+- [ ] `text_result` alanina yaz
+- [ ] Hata durumunda: `fallback_reason = "text_failed"`, status="error"
+- [ ] `node_history`'ye NodeTraceEntry ekle
+
+**merge_node:**
+- [ ] `merge_analysis_results(classification, resolved_symbol, numerical_result, text_result)` cagir
+- [ ] Sonucu `response` alanina yaz
+- [ ] `node_history`'ye NodeTraceEntry ekle
+
+**fallback_node:**
+- [ ] `run_document_pipeline(db, user_id, session_id, query)` cagir (mevcut RAG pipeline)
+- [ ] Sonucu `response` alanina yaz
+- [ ] `state["fallback_reason"]` degerini NodeTraceEntry'nin `reason_code`'una ekle
+- [ ] `node_history`'ye NodeTraceEntry ekle
+
+---
+
+### Task 7.4: Is Akisi ve Guvenli Singleton (workflow.py)
+
+**Tahmini Sure:** 2 saat
+**Durum:** Planned
+
+**Graph iskelet:**
+- [ ] `StateGraph(AgentState)` olustur
+- [ ] `add_node("classify_query", classify_query_node)` ekle
+- [ ] `add_node("resolve_symbol", resolve_symbol_node)` ekle
+- [ ] `add_node("numerical_analysis", numerical_analysis_node)` ekle
+- [ ] `add_node("text_analysis", text_analysis_node)` ekle
+- [ ] `add_node("merge", merge_node)` ekle
+- [ ] `add_node("fallback", fallback_node)` ekle
+
+**Entry ve edge'ler:**
+- [ ] `set_entry_point("classify_query")` ile baslangic node'unu belirle
+- [ ] `classify_query → resolve_symbol` duz edge ekle
+- [ ] `resolve_symbol` → routing fonksiyonu `_route_after_symbol` ile conditional edge ekle:
+  - [ ] `classification is None` veya `fallback_reason is not None` → `"fallback"`
+  - [ ] `QueryType.GENERAL` → `"fallback"`
+  - [ ] `needs_numerical_analysis AND needs_text_analysis` → `"numerical_analysis"` (oncelikli)
+  - [ ] `needs_numerical_analysis` → `"numerical_analysis"`
+  - [ ] `needs_text_analysis` → `"text_analysis"`
+  - [ ] default → `"fallback"`
+- [ ] `numerical_analysis` → routing fonksiyonu `_route_after_numerical` ile conditional edge ekle:
+  - [ ] `classification.needs_text_analysis` → `"text_analysis"`
+  - [ ] default → `"merge"`
+- [ ] `text_analysis → merge` duz edge ekle
+- [ ] `merge → END` edge ekle
+- [ ] `fallback → END` edge ekle
+
+**Singleton pattern:**
+- [ ] Module-level `_compiled_graph = None` tanimla
+- [ ] `build_workflow() -> StateGraph` fonksiyonu yaz (graph'i compile etmeden don)
+- [ ] `get_graph()` fonksiyonu yaz:
+  - [ ] `global _compiled_graph` kullan
+  - [ ] `_compiled_graph is None` ise `build_workflow().compile()` cagir
+  - [ ] Compile edilmis graph'i cache'le ve don
+- [ ] `graph/__init__.py`'ye `get_graph` export et
+
+---
+
+### Task 7.5: Yeni Graph Testleri (TDD - Once Bunlar!)
+
+**Tahmini Sure:** 3 saat
+**Durum:** Planned
+
+**test_graph_state.py:**
+- [ ] `NodeTraceEntry`'nin tum alanlarini (`node`, `status`, `duration_ms`, `reason_code`) icerigini dogrula
+- [ ] `AgentState`'in minimal required alanlari ile olusturulabildigini dogrula
+- [ ] `node_history`'nin bos list ile basladigini dogrula
+- [ ] `fallback_reason`'in default `None` oldugunu dogrula
+- [ ] `resolved_symbol`'un default `None` oldugunu dogrula
+
+**test_graph_nodes.py:**
+- [ ] `classify_query_node` mock ile cagrildiginda `state["classification"]` doldugunu dogrula
+- [ ] `classify_query_node` hata verdikten sonra `state["fallback_reason"] == "classification_failed"` oldugunu dogrula
+- [ ] `resolve_symbol_node` sembol listesi bos oldugunda status="skipped" kaydettidgini dogrula
+- [ ] `resolve_symbol_node` calistiktan sonra `state["resolved_symbol"]` doldugunu dogrula
+- [ ] `numerical_analysis_node` calistiktan sonra `state["numerical_result"]` doldugunu dogrula
+- [ ] `text_analysis_node` calistiktan sonra `state["text_result"]` doldugunu dogrula
+- [ ] `merge_node` calistiktan sonra `state["response"]` doldugunu dogrula
+- [ ] `fallback_node` calistiktan sonra `state["response"]` doldugunu dogrula
+- [ ] Her node'un `node_history`'ye tam olarak 1 entry ekledigini dogrula
+
+**test_graph_routing.py:**
+- [ ] `test_graph_routing_text`: TEXT_ANALYSIS sorusu → `text_analysis_node` calisip `text_result` doldu mu?
+- [ ] `test_graph_routing_numerical`: NUMERICAL sorusu → `numerical_analysis_node` calisip `numerical_result` doldu mu?
+- [ ] `test_graph_routing_general`: GENERAL sorusu → `fallback_node` calisip `response` doldu mu?
+- [ ] `test_graph_routing_both_types`: Hem text hem numerical gerektiginde ikiside de calisip merge yapildi mi?
+- [ ] `test_graph_routing_comparison`: COMPARISON sorusu → dogru node'lara gitti mi?
+
+**test_graph_fallback.py:**
+- [ ] `test_graph_fallback_on_general_query`: GENERAL → fallback_node cagrildi mi?
+- [ ] `test_graph_fallback_on_classification_error`: classify hata verirse fallback devreye girdi mi?
+- [ ] `test_graph_fallback_reason_set`: fallback sonrasi `state["fallback_reason"]` dolu mu?
+- [ ] `test_graph_fallback_returns_pipeline_result`: fallback_node `ChatPipelineResult` dondu mu?
+
+**test_graph_trace_history.py:**
+- [ ] `test_graph_trace_history_populated`: Her calistirilan node icin `node_history`'de kayit var mi?
+- [ ] `test_graph_trace_entry_fields`: Her `NodeTraceEntry`'de `node`, `status`, `duration_ms`, `reason_code` var mi?
+- [ ] `test_graph_trace_order`: `node_history` sirasi execution sirasiyla uyusuyor mu?
+- [ ] `test_graph_trace_duration_positive`: Her kaydin `duration_ms > 0` oldugunu dogrula
+- [ ] `test_graph_trace_error_status`: Hata veren node'un status="error" kaydettidgini dogrula
+
+---
+
+### Task 7.6: Orchestrator Refactor (Son Adim)
+
+**Tahmini Sure:** 2 saat
+**Durum:** Planned
+
+**Refactor:**
+- [ ] `orchestrator.py`'deki `run_orchestrated_pipeline` imzasini koru (disaridan cagrilan yer degismemeli)
+- [ ] Icerdeki tum `if/else` routing mantigini sil
+- [ ] `from app.services.agents.graph import get_graph` import et
+- [ ] `initial_state: AgentState` olustur: tum zorunlu alanlari doldur
+- [ ] `graph = get_graph()` ile graph'i al
+- [ ] `final_state = await graph.ainvoke(initial_state)` ile grafigi calistir
+- [ ] `final_state["response"]` → `ChatPipelineResult` olarak don
+- [ ] `final_state["resolved_symbol"]` → `ChatPipelineResult.resolved_symbol`
+- [ ] `final_state["node_history"]` → `chat_trace_service`'e ozet olarak gec
+
+**Trace entegrasyonu:**
+- [ ] `node_history` ozetini mevcut `chat_trace_service` trace yapisina yaz
+- [ ] Graph summary: kac node calistigini, toplam sure ve son `fallback_reason`'i logla
+- [ ] `build_orchestrator_agent()` ve `get_orchestrator_agent()` fonksiyonlarini sil ya da koru (geriye donuk uyumluluk)
+
+**Dogrulama:**
+- [ ] `pytest backend/tests/unit/test_orchestrator.py -v` → tum 8 test gec
+- [ ] `pytest backend/tests/unit/test_agent_trace_logging.py -v` → tum 15 test gec
+- [ ] `pytest backend/tests/unit/ -v` → hicbir mevcut test kirilmamali
+- [ ] `pytest backend/tests/unit/test_graph_routing.py -v` → tum yeni graph testleri gec
+- [ ] `pytest backend/tests/unit/test_graph_trace_history.py -v` → trace testleri gec
+
+---
+
+### Week 7 Sonunda Beklenen Cikti
+
+- [ ] Orchestrator artik if/else yerine LangGraph graph ile yonlendiriyor
+- [ ] Her sorgu turu dogru node zincirinden geciyor
+- [ ] `node_history` her sorgu icin doluyor ve trace'e yaziliyor
+- [ ] `fallback_reason` debug icin state'te mevcut
+- [ ] Mevcut tum testler kiriilmadan geciyor
+- [ ] Yeni graph testleri (routing, fallback, trace) gecmis durumda
+
+---
+
+# Phase 5 - Entegrasyon Derinlestirme
+
+## Week 8: API Bosluklari, Admin ve Capraz Sayfa Entegrasyonu
 
 **Tarih:** ___________
 **Hedef:** Kalan API bosluklarini kapatmak ve tum sayfalar arasinda tutarli bir urun akisi olusturmak
 **Durum:** Planned
 
-### Task 7.1: Auth API ve Frontend Sertlestirme
+### Task 8.1: Auth API ve Frontend Sertlestirme
 
 **Tahmini Sure:** 3 saat
 **Durum:** Planned
@@ -945,7 +1165,7 @@ Bu hafta itibariyla agent orchestration katmani CrewAI ile kurulacak. Ancak tum 
 - [ ] Frontend token saklama ve logout akisini sertlestir
 - [ ] Form validation ve hata mesajlarini duzenle
 
-### Task 7.2: Kalan Stocks/News/Chat API Bosluklari
+### Task 8.2: Kalan Stocks/News/Chat API Bosluklari
 
 **Tahmini Sure:** 4 saat
 **Durum:** Planned
@@ -958,7 +1178,7 @@ Bu hafta itibariyla agent orchestration katmani CrewAI ile kurulacak. Ancak tum 
 - [ ] SSE veya streaming response akisini planla
 - [ ] Source transparency formatini frontend'e uygun hale getir
 
-### Task 7.3: Capraz Sayfa Frontend Entegrasyonu
+### Task 8.3: Capraz Sayfa Frontend Entegrasyonu
 
 **Tahmini Sure:** 4 saat
 **Durum:** Planned
@@ -971,15 +1191,15 @@ Bu hafta itibariyla agent orchestration katmani CrewAI ile kurulacak. Ancak tum 
 
 ---
 
-# Phase 5 - EvalOps ve Judge
+# Phase 6 - EvalOps ve Judge
 
-## Week 8: Guvenilirlik Katmani
+## Week 9: Guvenilirlik Katmani
 
 **Tarih:** ___________
 **Hedef:** Halusinasyon riskini azaltan judge ve eval altyapisini kurmak
 **Durum:** Planned
 
-### Task 8.1: Judge Agent
+### Task 9.1: Judge Agent
 
 **Tahmini Sure:** 3 saat
 **Durum:** Planned
@@ -989,7 +1209,7 @@ Bu hafta itibariyla agent orchestration katmani CrewAI ile kurulacak. Ancak tum 
 - [ ] Source desteklenmeyen cevaplari tespit et
 - [ ] Retry karari icin cikti ver
 
-### Task 8.2: Eval Metrics
+### Task 9.2: Eval Metrics
 
 **Tahmini Sure:** 3 saat
 **Durum:** Planned
@@ -999,7 +1219,7 @@ Bu hafta itibariyla agent orchestration katmani CrewAI ile kurulacak. Ancak tum 
 - [ ] `eval_logs` tablosuna kaydet
 - [ ] Hallucination raporlama mantigi yaz
 
-### Task 8.3: Retry Handler
+### Task 9.3: Retry Handler
 
 **Tahmini Sure:** 2 saat
 **Durum:** Planned
@@ -1009,7 +1229,7 @@ Bu hafta itibariyla agent orchestration katmani CrewAI ile kurulacak. Ancak tum 
 - [ ] Yeniden cevap olustur
 - [ ] Retry sayisini logla
 
-### Task 8.4: Eval API
+### Task 9.4: Eval API
 
 **Tahmini Sure:** 2 saat
 **Durum:** Planned
@@ -1020,15 +1240,15 @@ Bu hafta itibariyla agent orchestration katmani CrewAI ile kurulacak. Ancak tum 
 
 ---
 
-# Phase 6 - Telegram Bot ve Notification Sistemi
+# Phase 7 - Telegram Bot ve Notification Sistemi
 
-## Week 9: Bildirim Akislari
+## Week 10: Bildirim Akislari
 
 **Tarih:** ___________
 **Hedef:** KAP filing ve watchlist temelli bildirim sistemini kurmak
 **Durum:** Planned
 
-### Task 9.1: Telegram Bot Servisi
+### Task 10.1: Telegram Bot Servisi
 
 **Tahmini Sure:** 3 saat
 **Durum:** Planned
@@ -1037,7 +1257,7 @@ Bu hafta itibariyla agent orchestration katmani CrewAI ile kurulacak. Ancak tum 
 - [ ] `/start`, `/link` akisini planla
 - [ ] Kullanici esleme mantigini kur
 
-### Task 9.2: Notification Service
+### Task 10.2: Notification Service
 
 **Tahmini Sure:** 3 saat
 **Durum:** Planned
@@ -1051,7 +1271,7 @@ Bu hafta itibariyla agent orchestration katmani CrewAI ile kurulacak. Ancak tum 
 - [ ] Price alert
 - [ ] Watchlist digest
 
-### Task 9.3: End-to-End Notification Flow
+### Task 10.3: End-to-End Notification Flow
 
 **Tahmini Sure:** 3 saat
 **Durum:** Planned
@@ -1062,15 +1282,15 @@ Bu hafta itibariyla agent orchestration katmani CrewAI ile kurulacak. Ancak tum 
 
 ---
 
-# Phase 7 - Test, Deploy Hazirligi ve Polish
+# Phase 8 - Test, Deploy Hazirligi ve Polish
 
-## Week 10: Stabilizasyon ve Kalite
+## Week 11: Stabilizasyon ve Kalite
 
 **Tarih:** ___________
 **Hedef:** Sistemi kullanilabilir ve test edilebilir seviyeye getirmek
 **Durum:** Planned
 
-### Task 10.1: Unit Tests
+### Task 11.1: Unit Tests
 
 **Tahmini Sure:** 4 saat
 **Durum:** Planned
@@ -1093,7 +1313,7 @@ Bu hafta itibariyla agent orchestration katmani CrewAI ile kurulacak. Ancak tum 
 - [ ] OpenRouter API
 - [ ] Minimum coverage hedefi: %70
 
-### Task 10.2: Integration Tests
+### Task 11.2: Integration Tests
 
 **Tahmini Sure:** 3 saat
 **Durum:** Planned
@@ -1104,7 +1324,7 @@ Bu hafta itibariyla agent orchestration katmani CrewAI ile kurulacak. Ancak tum 
 - [ ] Notification testi: yeni KAP filing -> Telegram bildirimi
 - [ ] Load test: 10 concurrent chat query
 
-### Task 10.3: Operasyonel Sertlestirme
+### Task 11.3: Operasyonel Sertlestirme
 
 **Tahmini Sure:** 3 saat
 **Durum:** Planned
@@ -1116,7 +1336,7 @@ Bu hafta itibariyla agent orchestration katmani CrewAI ile kurulacak. Ancak tum 
 - [ ] Temel hata izleme
 - [ ] Timeout policy
 
-### Task 10.4: Polish
+### Task 11.4: Polish
 
 **Tahmini Sure:** 2 saat
 **Durum:** Planned
