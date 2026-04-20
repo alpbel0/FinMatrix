@@ -163,6 +163,8 @@ def _pipeline_result(
         resolved_symbol=resolved_symbol,
         retrieval=retrieval,
         memory_context=memory_context,
+        node_history=[],
+        fallback_reason=None,
     )
 
 

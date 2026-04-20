@@ -2,7 +2,7 @@
 # Used for optional query improvement before retrieval
 # Default: disabled (enable_query_rewrite: false)
 
-model: "google/gemma-4-26b-a4b-it:free"
+model: "google/gemini-2.5-pro"
 temperature: 0.2
 max_tokens: 256
 

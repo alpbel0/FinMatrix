@@ -22,7 +22,7 @@ class MockOpenRouterResponse:
     """Structured OpenRouter API mock response."""
 
     content: str
-    model: str = "gemma-4-26b-a4b-it:free"
+    model: str = "google/gemini-2.5-pro"
     finish_reason: str = "stop"
     latency_ms: int = 100
 
@@ -236,7 +236,7 @@ class MockOpenRouterClientPresets:
     @staticmethod
     def fallback_retry() -> MockOpenRouterClient:
         """Preset for fallback model retry scenario."""
-        first = MockOpenRouterResponse(content="invalid", model="gemma-4-26b-a4b-it:free")
+        first = MockOpenRouterResponse(content="invalid", model="google/gemini-2.5-pro")
         second = create_query_classifier_success_response(
             query_type="text_analysis",
             symbols=["THYAO"],

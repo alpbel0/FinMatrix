@@ -130,6 +130,8 @@ class TestFinalizeChatTrace:
         assert result.has_sufficient_context is True
         assert result.duration_ms == 1234
         assert result.sources_metadata[0]["kap_report_id"] == 211
+        assert result.graph_node_history == []
+        assert result.graph_fallback_reason is None
 
     @pytest.mark.asyncio
     async def test_finalize_failure(self):
@@ -157,3 +159,83 @@ class TestFinalizeChatTrace:
         assert result.duration_ms == 456
         assert result.intent == "summary"
         assert result.retrieved_chunk_count == 1
+        assert result.graph_node_history == []
+        assert result.graph_fallback_reason is None
+
+    @pytest.mark.asyncio
+    async def test_finalize_persists_graph_debug_fields(self):
+        db = AsyncMock()
+        db.commit = AsyncMock()
+        db.refresh = AsyncMock()
+        trace = ChatTrace(
+            session_id=1,
+            user_id=2,
+            user_message_id=3,
+            original_query="THYAO faaliyet raporu ne diyor?",
+            status="STARTED",
+        )
+        pipeline_result = self._pipeline_result()
+        pipeline_result.node_history = [
+            {
+                "node": "classify_query",
+                "status": "ok",
+                "duration_ms": 12.5,
+                "reason_code": None,
+            },
+            {
+                "node": "fallback",
+                "status": "ok",
+                "duration_ms": 40.0,
+                "reason_code": "classification_failed",
+            },
+        ]
+        pipeline_result.fallback_reason = "classification_failed"
+
+        result = await finalize_chat_trace_success(
+            db=db,
+            trace=trace,
+            pipeline_result=pipeline_result,
+            assistant_message_id=4,
+            duration_ms=1234,
+        )
+
+        assert result.graph_node_history == pipeline_result.node_history
+        assert result.graph_fallback_reason == "classification_failed"
+
+    @pytest.mark.asyncio
+    async def test_finalize_failure_handles_missing_response(self):
+        db = AsyncMock()
+        db.commit = AsyncMock()
+        db.refresh = AsyncMock()
+        trace = ChatTrace(
+            session_id=1,
+            user_id=2,
+            user_message_id=3,
+            original_query="THYAO faaliyet raporu ne diyor?",
+            status="STARTED",
+        )
+        pipeline_result = self._pipeline_result()
+        pipeline_result.response = None
+        pipeline_result.node_history = [
+            {
+                "node": "merge",
+                "status": "error",
+                "duration_ms": 9.0,
+                "reason_code": "merge_failed",
+            }
+        ]
+        pipeline_result.fallback_reason = "merge_failed"
+
+        result = await finalize_chat_trace_failure(
+            db=db,
+            trace=trace,
+            error_message="Chat pipeline returned no response",
+            duration_ms=456,
+            pipeline_result=pipeline_result,
+        )
+
+        assert result.status == "FAILED"
+        assert result.graph_node_history == pipeline_result.node_history
+        assert result.graph_fallback_reason == "merge_failed"
+        assert result.sources_metadata == []
+        assert result.response_payload == {}

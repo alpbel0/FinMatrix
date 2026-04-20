@@ -153,6 +153,8 @@ async def send_message(
             query=message,
         )
         response = pipeline_result.response
+        if response is None:
+            raise RuntimeError("Chat pipeline returned no response")
 
         assistant_message = await save_message(
             db=db,

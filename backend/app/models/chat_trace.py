@@ -45,6 +45,8 @@ class ChatTrace(Base):
     understanding_payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     retrieval_payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     response_payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    graph_node_history: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    graph_fallback_reason: Mapped[str | None] = mapped_column(String(100), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(

@@ -1,6 +1,6 @@
 """Structured trace persistence for chat/RAG pipeline runs."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -67,11 +67,18 @@ def _build_response_payload(response: RAGResponse) -> dict[str, Any]:
 class ChatPipelineResult:
     """Internal pipeline result with debug context for tracing."""
 
-    response: RAGResponse
+    response: RAGResponse | None
     understanding: QueryUnderstandingResult
     resolved_symbol: str | None
     retrieval: RetrievalAgentResult
     memory_context: str
+    node_history: list[dict[str, Any]] = field(default_factory=list)
+    fallback_reason: str | None = None
+
+
+def _apply_graph_debug_payload(trace: ChatTrace, pipeline_result: ChatPipelineResult) -> None:
+    trace.graph_node_history = pipeline_result.node_history
+    trace.graph_fallback_reason = pipeline_result.fallback_reason
 
 
 async def create_chat_trace(
@@ -110,6 +117,7 @@ async def finalize_chat_trace_success(
 
     trace.assistant_message_id = assistant_message_id
     trace.status = "SUCCESS"
+    _apply_graph_debug_payload(trace, pipeline_result)
     trace.normalized_query = understanding.normalized_query
     trace.candidate_symbol = understanding.candidate_symbol
     trace.resolved_symbol = pipeline_result.resolved_symbol
@@ -145,10 +153,13 @@ async def finalize_chat_trace_failure(
     trace.status = "FAILED"
     trace.error_message = _truncate_text(error_message, 500)
     trace.duration_ms = duration_ms
+    trace.sources_metadata = []
+    trace.response_payload = {}
 
     if pipeline_result is not None:
         understanding = pipeline_result.understanding
         retrieval = pipeline_result.retrieval
+        _apply_graph_debug_payload(trace, pipeline_result)
         trace.normalized_query = understanding.normalized_query
         trace.candidate_symbol = understanding.candidate_symbol
         trace.resolved_symbol = pipeline_result.resolved_symbol
@@ -159,10 +170,11 @@ async def finalize_chat_trace_failure(
         trace.retrieval_confidence = retrieval.retrieval_confidence
         trace.context_total_chars = retrieval.context_total_chars
         trace.has_sufficient_context = retrieval.has_sufficient_context
-        trace.sources_metadata = _summarize_sources(pipeline_result.response.sources)
         trace.understanding_payload = understanding.model_dump(mode="json")
         trace.retrieval_payload = _build_retrieval_payload(retrieval)
-        trace.response_payload = _build_response_payload(pipeline_result.response)
+        if pipeline_result.response is not None:
+            trace.sources_metadata = _summarize_sources(pipeline_result.response.sources)
+            trace.response_payload = _build_response_payload(pipeline_result.response)
 
     await db.commit()
     await db.refresh(trace)
