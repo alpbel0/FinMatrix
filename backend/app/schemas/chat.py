@@ -155,6 +155,12 @@ class SourceItem(BaseModel):
     filing_type: str
     source_url: str
     chunk_preview: str
+    report_ids: list[int] = []
+    published_years: list[int] = []
+    consistency_count: int = 1
+    evidence_mode: str = "single_report"
+    latest_report_id: int | None = None
+    evidence_note: str | None = None
 
 
 class RetrievalAgentResult(BaseModel):

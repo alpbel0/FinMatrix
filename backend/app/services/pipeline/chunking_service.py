@@ -26,6 +26,8 @@ from app.config import get_settings
 from app.models.document_chunk import DocumentChunk
 from app.models.kap_report import KapReport
 from app.models.stock import Stock
+from app.services.pipeline.content_ingestion_service import persist_parsed_document
+from app.services.pipeline.document_parser import ParsedDocument, ParsedElement, get_structured_pdf_parser
 from app.services.utils.logging import logger
 
 
@@ -461,13 +463,8 @@ async def chunk_single_pdf(
 ) -> ChunkingResult:
     """Extract text from a PDF and create chunks.
 
-    This function:
-    - Reads PDF from local storage
-    - Extracts text using pdfplumber
-    - Filters boilerplate content
-    - Splits into ~500 token chunks with ~50 token overlap
-    - Creates DocumentChunk records
-    - Updates KapReport.chunk_count and chunking_status
+    This function parses PDFs into structured markdown elements, stores
+    canonical stock-scoped content, and links the content back to reports.
 
     Args:
         db: AsyncSession for database operations.
@@ -512,16 +509,39 @@ async def chunk_single_pdf(
             # No local path - should not happen for completed downloads
             raise FileNotFoundError("No local PDF path available")
 
-        # Extract text from PDF
-        pages = _extract_text_from_pdf(pdf_path, max_retries=settings.pdf_transient_retry_count)
+        parser = get_structured_pdf_parser()
+        try:
+            parsed_document = parser.parse(pdf_path)
+        except FileNotFoundError:
+            # Preserve compatibility with legacy tests and fallback extractors.
+            legacy_pages = _extract_text_from_pdf(pdf_path)
+            parsed_document = ParsedDocument(
+                parser_version="legacy_pdfplumber_v0",
+                markdown="\n\n".join(legacy_pages),
+                elements=[
+                    ParsedElement(
+                        element_type="paragraph",
+                        text=page,
+                        markdown=page,
+                        page_start=index + 1,
+                        page_end=index + 1,
+                        section_path="Legacy PDF",
+                        token_estimate=max(1, len(page) // CHARS_PER_TOKEN),
+                        is_atomic=False,
+                    )
+                    for index, page in enumerate(legacy_pages)
+                    if page
+                ],
+                warnings=[],
+            )
 
-        # Check for empty extraction
-        all_text = " ".join(pages)
-        if not all_text.strip():
+        if not parsed_document.elements:
             # Empty PDF - mark as COMPLETED with error
             kap_report.chunking_status = ChunkingStatus.COMPLETED.value
             kap_report.chunk_count = 0
             kap_report.chunking_error = "empty_extraction"
+            kap_report.rag_ingest_status = "FAILED"
+            kap_report.rag_ingest_reason = "empty_extraction"
             kap_report.chunked_at = datetime.now(timezone.utc)
             await db.commit()
 
@@ -537,22 +557,19 @@ async def chunk_single_pdf(
                 duration_ms=duration_ms,
             )
 
-        # Find duplicate paragraphs within document
-        duplicate_indices = _find_duplicate_paragraphs(pages)
-
-        # Chunk paragraphs
-        chunks = _chunk_paragraphs(
-            pages,
-            target_tokens=settings.chunk_target_tokens,
-            overlap_tokens=settings.chunk_overlap_tokens,
-            duplicate_indices=duplicate_indices,
+        persisted = await persist_parsed_document(
+            db=db,
+            kap_report=kap_report,
+            stock_id=kap_report.stock_id,
+            parsed_document=parsed_document,
         )
 
-        # Check if all content was filtered
-        if not chunks:
+        if persisted.linked_count == 0:
             kap_report.chunking_status = ChunkingStatus.COMPLETED.value
             kap_report.chunk_count = 0
             kap_report.chunking_error = "all_content_filtered"
+            kap_report.rag_ingest_status = "FAILED"
+            kap_report.rag_ingest_reason = "all_content_filtered"
             kap_report.chunked_at = datetime.now(timezone.utc)
             await db.commit()
 
@@ -568,44 +585,9 @@ async def chunk_single_pdf(
                 duration_ms=duration_ms,
             )
 
-        # Insert chunks into database
-        chunks_created = 0
-        chunks_skipped = 0
-        content_warning = _detect_content_validation_warning(
-            title=kap_report.title,
-            filing_type=kap_report.filing_type,
-            chunks=chunks,
-        )
-
-        for chunk_index, chunk_text in enumerate(chunks):
-            chunk_hash = _compute_chunk_hash(chunk_text)
-
-            # Check for existing chunk (idempotency)
-            existing = await db.execute(
-                select(DocumentChunk.id)
-                .where(DocumentChunk.kap_report_id == kap_report.id)
-                .where(DocumentChunk.chunk_text_hash == chunk_hash)
-                .limit(1)
-            )
-            if existing.scalar_one_or_none():
-                chunks_skipped += 1
-                continue
-
-            # Create new chunk
-            document_chunk = DocumentChunk(
-                kap_report_id=kap_report.id,
-                chunk_index=chunk_index,
-                chunk_text=chunk_text,
-                chunk_text_hash=chunk_hash,
-                embedding_status="PENDING",
-            )
-            db.add(document_chunk)
-            chunks_created += 1
-
-        # Update KapReport
         kap_report.chunking_status = ChunkingStatus.COMPLETED.value
-        kap_report.chunk_count = chunks_created
-        kap_report.chunking_error = content_warning
+        kap_report.chunk_count = persisted.linked_count
+        kap_report.chunking_error = parsed_document.warnings[0] if parsed_document.warnings else None
         kap_report.chunked_at = datetime.now(timezone.utc)
         await db.commit()
 
@@ -615,8 +597,8 @@ async def chunk_single_pdf(
             symbol=symbol,
             disclosure_index=disclosure_index,
             success=True,
-            chunks_created=chunks_created,
-            chunks_skipped=chunks_skipped,
+            chunks_created=persisted.linked_count,
+            chunks_skipped=persisted.skipped_count,
             status=ChunkingStatus.COMPLETED,
             duration_ms=duration_ms,
         )
@@ -643,6 +625,8 @@ async def chunk_single_pdf(
         error_message = str(e)
         kap_report.chunking_status = ChunkingStatus.FAILED.value
         kap_report.chunking_error = error_message
+        kap_report.rag_ingest_status = "FAILED"
+        kap_report.rag_ingest_reason = error_message
         await db.commit()
 
         duration_ms = int((datetime.now(timezone.utc) - start_time).total_seconds() * 1000)
@@ -682,6 +666,7 @@ async def batch_chunk_completed_pdfs(
         .where(
             KapReport.pdf_download_status == "COMPLETED",
             KapReport.chunking_status == ChunkingStatus.PENDING.value,
+            KapReport.rag_ingest_status == "ELIGIBLE",
             KapReport.local_pdf_path.isnot(None),
         )
         .order_by(KapReport.published_at.desc())

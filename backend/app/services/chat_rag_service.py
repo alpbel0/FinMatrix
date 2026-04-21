@@ -250,6 +250,7 @@ async def run_document_pipeline(
         logger.debug("Resolved symbol: %s", resolved_symbol)
 
         retrieval = await run_retrieval(
+            db=db,
             query=query,
             resolved_symbol=resolved_symbol,
             document_type=understanding.document_type,

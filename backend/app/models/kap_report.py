@@ -35,6 +35,10 @@ class KapReport(Base):
     chunking_status: Mapped[str] = mapped_column(String(50), default="PENDING", nullable=False)
     chunking_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     chunked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    rag_ingest_status: Mapped[str] = mapped_column(String(50), default="PENDING", nullable=False)
+    rag_ingest_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    parser_version: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    parsed_markdown_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     stock: Mapped["Stock | None"] = relationship(lazy="selectin")
 

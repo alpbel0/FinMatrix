@@ -41,3 +41,5 @@ Thumbs.db
 # Local runtime stores
 backend/.tmp/
 .bg-shell/
+data/parsed_markdown/
+backend/data/parsed_markdown/

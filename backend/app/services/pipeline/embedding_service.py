@@ -1,41 +1,28 @@
-"""Embedding Service for document chunks.
+"""Embedding service for canonical RAG 2.0 document content."""
 
-This service handles creating embeddings for document chunks and storing them
-in ChromaDB vector database.
-
-Key principles:
-- Service functions return Pydantic result objects (no DB logging)
-- Scheduler wrapper creates THE ONLY PipelineLog for the run
-- Batch processing: 100 chunks per OpenRouter API call
-- 500 chunks max per scheduler run
-"""
-
-import asyncio
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Any
+from __future__ import annotations
 
 import chromadb
 import httpx
+
+from enum import Enum
+from typing import Any
+
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.config import get_settings
-from app.models.document_chunk import DocumentChunk
+from app.models.chunk_report_link import ChunkReportLink
+from app.models.document_content import DocumentContent
 from app.models.kap_report import KapReport
+from app.models.stock import Stock
 from app.services.utils.logging import logger
 
-
-# ============================================================================
-# Constants
-# ============================================================================
 
 OPENROUTER_EMBEDDING_URL = "https://openrouter.ai/api/v1/embeddings"
 EMBEDDING_MODEL = "openai/text-embedding-3-small"
 
-# Retry-eligible error patterns for embeddings
 EMBEDDING_RETRY_PATTERNS = [
     "Timeout",
     "rate limit",
@@ -47,25 +34,13 @@ EMBEDDING_RETRY_PATTERNS = [
 ]
 
 
-# ============================================================================
-# Enums
-# ============================================================================
-
-
 class EmbeddingStatus(str, Enum):
-    """Embedding status values - matches DocumentChunk.embedding_status."""
     PENDING = "PENDING"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
 
 
-# ============================================================================
-# Pydantic Result Models
-# ============================================================================
-
-
 class EmbeddingResult(BaseModel):
-    """Result of embedding a single chunk."""
     chunk_id: int
     success: bool
     chroma_document_id: str | None = None
@@ -74,47 +49,26 @@ class EmbeddingResult(BaseModel):
 
 
 class EmbeddingBatchResult(BaseModel):
-    """Result of batch embedding operation.
-
-    NO run_id field - scheduler wrapper handles PipelineLog.
-    """
     total_processed: int
     successful: int
     failed: int
-    status: str  # "success", "partial", "failed"
+    status: str
     results: list[EmbeddingResult] = []
     details: dict[str, Any] | None = None
 
-
-# ============================================================================
-# ChromaDB Client (Singleton)
-# ============================================================================
 
 _chroma_client: chromadb.ClientAPI | None = None
 
 
 def _get_chroma_client() -> chromadb.ClientAPI:
-    """Get or create ChromaDB client (singleton pattern).
-
-    Returns:
-        ChromaDB HttpClient instance.
-    """
     global _chroma_client
     if _chroma_client is None:
         settings = get_settings()
-        _chroma_client = chromadb.HttpClient(
-            host=settings.chroma_host,
-            port=settings.chroma_port,
-        )
+        _chroma_client = chromadb.HttpClient(host=settings.chroma_host, port=settings.chroma_port)
     return _chroma_client
 
 
 def _get_or_create_collection() -> chromadb.Collection:
-    """Get or create the kap_documents collection.
-
-    Returns:
-        ChromaDB Collection instance.
-    """
     settings = get_settings()
     client = _get_chroma_client()
     return client.get_or_create_collection(
@@ -123,48 +77,25 @@ def _get_or_create_collection() -> chromadb.Collection:
     )
 
 
-# ============================================================================
-# Helper Functions
-# ============================================================================
+def _is_embedding_retry_eligible(error_message: str) -> bool:
+    return any(pattern.lower() in error_message.lower() for pattern in EMBEDDING_RETRY_PATTERNS)
 
 
 def _build_chunk_metadata(
-    chunk: DocumentChunk,
+    chunk: Any,
     kap_report: KapReport,
     stock_symbol: str,
 ) -> dict[str, Any]:
-    """Build metadata dict for ChromaDB document.
-
-    Args:
-        chunk: The DocumentChunk instance.
-        kap_report: The parent KapReport instance.
-        stock_symbol: Stock symbol string.
-
-    Returns:
-        Metadata dict with all required fields.
-    """
+    title = (kap_report.title or "")[:500]
     return {
         "stock_symbol": stock_symbol,
-        "report_title": kap_report.title[:500] if kap_report.title else "",
+        "report_title": title,
         "published_at": kap_report.published_at.isoformat() if kap_report.published_at else None,
         "filing_type": kap_report.filing_type or "",
-        "source_url": kap_report.source_url or "",
-        "chunk_index": chunk.chunk_index,
-        "kap_report_id": kap_report.id,
-        "chunk_text_hash": chunk.chunk_text_hash or "",
+        "chunk_index": getattr(chunk, "chunk_index", 0),
+        "kap_report_id": getattr(chunk, "kap_report_id", None),
+        "chunk_text_hash": getattr(chunk, "chunk_text_hash", None),
     }
-
-
-def _is_embedding_retry_eligible(error_message: str) -> bool:
-    """Check if error is eligible for retry.
-
-    Args:
-        error_message: The error message string.
-
-    Returns:
-        True if retry-eligible, False otherwise.
-    """
-    return any(pattern.lower() in error_message.lower() for pattern in EMBEDDING_RETRY_PATTERNS)
 
 
 async def _get_embeddings_from_openrouter(
@@ -173,21 +104,6 @@ async def _get_embeddings_from_openrouter(
     api_key: str,
     timeout: float,
 ) -> list[list[float]]:
-    """Get embeddings from OpenRouter API.
-
-    Args:
-        texts: List of text strings to embed.
-        client: httpx AsyncClient instance.
-        api_key: OpenRouter API key.
-        timeout: Request timeout in seconds.
-
-    Returns:
-        List of embedding vectors (one per text).
-
-    Raises:
-        httpx.HTTPStatusError: On API error responses.
-        httpx.TimeoutException: On timeout.
-    """
     response = await client.post(
         OPENROUTER_EMBEDDING_URL,
         headers={
@@ -201,232 +117,145 @@ async def _get_embeddings_from_openrouter(
         timeout=timeout,
     )
     response.raise_for_status()
-    data = response.json()
-
-    # OpenRouter returns {"data": [{"embedding": [...], "index": 0}, ...]}
-    embeddings_data = data["data"]
-
-    # Sort by index to ensure correct order
-    embeddings_data.sort(key=lambda x: x["index"])
-
-    return [item["embedding"] for item in embeddings_data]
+    data = response.json()["data"]
+    data.sort(key=lambda item: item["index"])
+    return [item["embedding"] for item in data]
 
 
-# ============================================================================
-# Core Service Functions
-# ============================================================================
-
-
-async def embed_chunks_batch(
+async def _build_content_metadata(
     db: AsyncSession,
-    chunks: list[DocumentChunk],
-    kap_report_map: dict[int, KapReport],
+    content: DocumentContent,
+    stock_symbol_map: dict[int, str],
+) -> dict[str, Any]:
+    link_result = await db.execute(
+        select(ChunkReportLink, KapReport)
+        .join(KapReport, KapReport.id == ChunkReportLink.kap_report_id)
+        .where(ChunkReportLink.content_id == content.id)
+        .order_by(KapReport.published_at.desc())
+    )
+    rows = list(link_result.all())
+    latest_link, latest_report = rows[0] if rows else (None, None)
+    report_ids = [row.ChunkReportLink.kap_report_id for row in rows]
+    published_years = sorted({row.KapReport.published_at.year for row in rows if row.KapReport.published_at})
+    filing_types = sorted({row.ChunkReportLink.filing_type for row in rows if row.ChunkReportLink.filing_type})
+
+    return {
+        "content_id": content.id,
+        "stock_id": content.stock_id,
+        "stock_symbol": stock_symbol_map.get(content.stock_id, ""),
+        "report_title": latest_report.title[:500] if latest_report and latest_report.title else "",
+        "published_at": latest_report.published_at.isoformat() if latest_report and latest_report.published_at else None,
+        "filing_type": latest_link.filing_type if latest_link else "",
+        "source_url": latest_report.source_url if latest_report and latest_report.source_url else "",
+        "kap_report_id": latest_report.id if latest_report else None,
+        "latest_kap_report_id": latest_report.id if latest_report else None,
+        "chunk_text_hash": content.content_hash,
+        "content_hash": content.content_hash,
+        "report_ids": ",".join(str(report_id) for report_id in report_ids),
+        "published_years": ",".join(str(year) for year in published_years),
+        "report_count": len(set(report_ids)),
+        "content_type": content.content_type,
+        "content_origin": content.content_origin,
+        "section_path": content.section_path or "",
+        "evidence_mode": _derive_evidence_mode(published_years),
+    }
+
+
+def _derive_evidence_mode(published_years: list[int]) -> str:
+    if len(published_years) <= 1:
+        return "single_report"
+    return "repeated_across_reports"
+
+
+async def embed_contents_batch(
+    db: AsyncSession,
+    contents: list[DocumentContent],
     stock_symbol_map: dict[int, str],
 ) -> EmbeddingBatchResult:
-    """Embed a batch of chunks and store in ChromaDB.
-
-    Args:
-        db: AsyncSession for database operations.
-        chunks: List of DocumentChunk instances to embed.
-        kap_report_map: Dict mapping kap_report_id to KapReport.
-        stock_symbol_map: Dict mapping stock_id to symbol.
-
-    Returns:
-        EmbeddingBatchResult with batch outcome.
-    """
     settings = get_settings()
     results: list[EmbeddingResult] = []
     successful = 0
     failed = 0
 
-    if not chunks:
-        return EmbeddingBatchResult(
-            total_processed=0,
-            successful=0,
-            failed=0,
-            status="success",
-            results=[],
-        )
+    if not contents:
+        return EmbeddingBatchResult(total_processed=0, successful=0, failed=0, status="success", results=[])
 
-    # Get ChromaDB collection
     try:
         collection = _get_or_create_collection()
-    except Exception as e:
-        logger.error(f"Failed to connect to ChromaDB: {e}")
-        # Mark all chunks as failed
-        for chunk in chunks:
-            chunk.embedding_status = EmbeddingStatus.FAILED.value
-            results.append(EmbeddingResult(
-                chunk_id=chunk.id,
-                success=False,
-                error_message=f"ChromaDB connection error: {e}",
-                status=EmbeddingStatus.FAILED,
-            ))
-            failed += 1
+    except Exception as exc:
+        for content in contents:
+            content.embedding_status = EmbeddingStatus.FAILED.value
+            results.append(
+                EmbeddingResult(chunk_id=content.id, success=False, error_message=f"ChromaDB connection error: {exc}", status=EmbeddingStatus.FAILED)
+            )
         await db.commit()
+        return EmbeddingBatchResult(total_processed=len(contents), successful=0, failed=len(contents), status="failed", results=results)
 
-        return EmbeddingBatchResult(
-            total_processed=len(chunks),
-            successful=0,
-            failed=failed,
-            status="failed",
-            results=results,
-        )
+    async with httpx.AsyncClient() as client:
+        for index in range(0, len(contents), settings.embedding_batch_size):
+            batch = contents[index:index + settings.embedding_batch_size]
+            texts = [content.content_markdown or content.content_text for content in batch]
 
-    # Process in API batches of embedding_batch_size
-    batch_size = settings.embedding_batch_size
-
-    async with httpx.AsyncClient() as http_client:
-        for i in range(0, len(chunks), batch_size):
-            batch_chunks = chunks[i : i + batch_size]
-            eligible_chunks: list[DocumentChunk] = []
-
-            for chunk in batch_chunks:
-                if kap_report_map.get(chunk.kap_report_id):
-                    eligible_chunks.append(chunk)
-                    continue
-
-                chunk.embedding_status = EmbeddingStatus.FAILED.value
-                results.append(EmbeddingResult(
-                    chunk_id=chunk.id,
-                    success=False,
-                    error_message=f"Missing KapReport for chunk {chunk.id}",
-                    status=EmbeddingStatus.FAILED,
-                ))
-                failed += 1
-
-            if not eligible_chunks:
-                await db.commit()
-                continue
-
-            # Prepare texts for embedding
-            texts = [chunk.chunk_text for chunk in eligible_chunks]
-
-            # Get embeddings with retry
-            embeddings: list[list[float]] | None = None
-            last_error: Exception | None = None
-            retry_count = 0
-
-            while retry_count <= settings.embedding_retry_count:
-                try:
-                    embeddings = await _get_embeddings_from_openrouter(
-                        texts=texts,
-                        client=http_client,
-                        api_key=settings.openrouter_api_key,
-                        timeout=settings.embedding_timeout,
+            try:
+                embeddings = await _get_embeddings_from_openrouter(
+                    texts=texts,
+                    client=client,
+                    api_key=settings.openrouter_api_key,
+                    timeout=settings.embedding_timeout,
+                )
+            except Exception as exc:
+                error_message = str(exc)
+                retry_eligible = _is_embedding_retry_eligible(error_message)
+                for content in batch:
+                    if retry_eligible:
+                        continue
+                    content.embedding_status = EmbeddingStatus.FAILED.value
+                    results.append(
+                        EmbeddingResult(chunk_id=content.id, success=False, error_message=error_message, status=EmbeddingStatus.FAILED)
                     )
-                    break  # Success
-                except (httpx.TimeoutException, httpx.HTTPStatusError) as e:
-                    last_error = e
-                    error_msg = str(e)
-
-                    if _is_embedding_retry_eligible(error_msg):
-                        retry_count += 1
-                        if retry_count <= settings.embedding_retry_count:
-                            logger.warning(
-                                f"Transient embedding error, retry {retry_count}/{settings.embedding_retry_count}: {e}"
-                            )
-                            await asyncio.sleep(1)  # Brief delay before retry
-                    else:
-                        # Non-retry error
-                        break
-
-            if embeddings is None:
-                # Embedding failed for this batch
-                error_message = str(last_error) if last_error else "Unknown error"
-                for chunk in eligible_chunks:
-                    chunk.embedding_status = EmbeddingStatus.FAILED.value
-                    results.append(EmbeddingResult(
-                        chunk_id=chunk.id,
-                        success=False,
-                        error_message=error_message,
-                        status=EmbeddingStatus.FAILED,
-                    ))
                     failed += 1
                 await db.commit()
                 continue
 
-            # Build metadata and upsert to ChromaDB
             ids: list[str] = []
             metadatas: list[dict[str, Any]] = []
             documents: list[str] = []
-            valid_chunks: list[DocumentChunk] = []
 
-            for chunk in eligible_chunks:
-                kap_report = kap_report_map[chunk.kap_report_id]
-                stock_symbol = stock_symbol_map.get(kap_report.stock_id) if kap_report.stock_id else ""
-
-                # Use chunk_text_hash as ChromaDB document ID
-                doc_id = chunk.chunk_text_hash or f"chunk_{chunk.id}"
-
+            for content in batch:
+                doc_id = content.content_hash or f"content_{content.id}"
                 ids.append(doc_id)
-                metadatas.append(_build_chunk_metadata(chunk, kap_report, stock_symbol))
-                documents.append(chunk.chunk_text)
-                valid_chunks.append(chunk)
+                metadatas.append(await _build_content_metadata(db, content, stock_symbol_map))
+                documents.append(content.content_markdown or content.content_text)
 
-            if not valid_chunks:
+            try:
+                collection.upsert(ids=ids, embeddings=embeddings, metadatas=metadatas, documents=documents)
+            except Exception as exc:
+                error_message = f"ChromaDB error: {exc}"
+                for content in batch:
+                    content.embedding_status = EmbeddingStatus.FAILED.value
+                    results.append(
+                        EmbeddingResult(chunk_id=content.id, success=False, error_message=error_message, status=EmbeddingStatus.FAILED)
+                    )
+                    failed += 1
                 await db.commit()
                 continue
 
-            # Upsert to ChromaDB
-            try:
-                collection.upsert(
-                    ids=ids,
-                    embeddings=embeddings[: len(valid_chunks)],  # Ensure matching length
-                    metadatas=metadatas,
-                    documents=documents,
+            for content, doc_id in zip(batch, ids, strict=False):
+                content.embedding_status = EmbeddingStatus.COMPLETED.value
+                content.chroma_document_id = doc_id
+                results.append(
+                    EmbeddingResult(chunk_id=content.id, success=True, chroma_document_id=doc_id, status=EmbeddingStatus.COMPLETED)
                 )
-
-                # Update chunk status
-                for j, chunk in enumerate(valid_chunks):
-                    if j < len(embeddings):
-                        chunk.embedding_status = EmbeddingStatus.COMPLETED.value
-                        chunk.chroma_document_id = ids[j]
-                        results.append(EmbeddingResult(
-                            chunk_id=chunk.id,
-                            success=True,
-                            chroma_document_id=ids[j],
-                            status=EmbeddingStatus.COMPLETED,
-                        ))
-                        successful += 1
-                    else:
-                        chunk.embedding_status = EmbeddingStatus.FAILED.value
-                        results.append(EmbeddingResult(
-                            chunk_id=chunk.id,
-                            success=False,
-                            error_message="Embedding index mismatch",
-                            status=EmbeddingStatus.FAILED,
-                        ))
-                        failed += 1
-
-            except Exception as e:
-                # ChromaDB upsert error
-                error_message = f"ChromaDB error: {e}"
-                for chunk in eligible_chunks:
-                    chunk.embedding_status = EmbeddingStatus.FAILED.value
-                    results.append(EmbeddingResult(
-                        chunk_id=chunk.id,
-                        success=False,
-                        error_message=error_message,
-                        status=EmbeddingStatus.FAILED,
-                    ))
-                    failed += 1
+                successful += 1
 
             await db.commit()
 
-    # Determine batch status
-    if failed == 0:
-        batch_status = "success"
-    elif successful > 0:
-        batch_status = "partial"
-    else:
-        batch_status = "failed"
-
+    status = "success" if failed == 0 else "partial" if successful > 0 else "failed"
     return EmbeddingBatchResult(
-        total_processed=len(chunks),
+        total_processed=len(contents),
         successful=successful,
         failed=failed,
-        status=batch_status,
+        status=status,
         results=results,
     )
 
@@ -435,69 +264,140 @@ async def batch_embed_pending_chunks(
     db: AsyncSession,
     limit: int = 500,
 ) -> EmbeddingBatchResult:
-    """Embed all chunks that are pending embedding.
-
-    Query DocumentChunks where embedding_status='PENDING'.
-    Does NOT create PipelineLog - returns result only.
-
-    Processing flow:
-    1. Query up to `limit` chunks with embedding_status='PENDING'
-    2. Load related KapReports in batch
-    3. Process in API batches of embedding_batch_size (100)
-    4. Return combined results
-
-    Args:
-        db: AsyncSession for database operations.
-        limit: Maximum number of chunks to embed (default: 500).
-
-    Returns:
-        EmbeddingBatchResult with batch outcome.
-    """
-    settings = get_settings()
-
-    # Query pending chunks
-    query = (
-        select(DocumentChunk)
-        .where(DocumentChunk.embedding_status == EmbeddingStatus.PENDING.value)
-        .order_by(DocumentChunk.created_at)
+    result = await db.execute(
+        select(DocumentContent)
+        .where(DocumentContent.embedding_status == EmbeddingStatus.PENDING.value)
+        .order_by(DocumentContent.created_at)
         .limit(limit)
     )
+    contents = list(result.scalars().all())
 
-    result = await db.execute(query)
-    chunks = list(result.scalars().all())
+    if not contents:
+        return EmbeddingBatchResult(total_processed=0, successful=0, failed=0, status="success", results=[])
 
-    if not chunks:
-        return EmbeddingBatchResult(
-            total_processed=0,
-            successful=0,
-            failed=0,
-            status="success",
-            results=[],
-        )
-
-    # Load KapReports in batch
-    kap_report_ids = list(set(chunk.kap_report_id for chunk in chunks))
-    kap_reports_result = await db.execute(
-        select(KapReport).where(KapReport.id.in_(kap_report_ids))
-    )
-    kap_reports = kap_reports_result.scalars().all()
-    kap_report_map = {kr.id: kr for kr in kap_reports}
-
-    # Load stock symbols
-    stock_ids = list(set(kr.stock_id for kr in kap_reports if kr.stock_id))
+    stock_ids = list({content.stock_id for content in contents})
     stock_symbol_map: dict[int, str] = {}
     if stock_ids:
-        from app.models.stock import Stock
-        stocks_result = await db.execute(
-            select(Stock.id, Stock.symbol).where(Stock.id.in_(stock_ids))
-        )
-        for row in stocks_result:
-            stock_symbol_map[row[0]] = row[1]
+        stocks_result = await db.execute(select(Stock.id, Stock.symbol).where(Stock.id.in_(stock_ids)))
+        for stock_id, symbol in stocks_result:
+            stock_symbol_map[stock_id] = symbol
 
-    # Embed the chunks
-    return await embed_chunks_batch(
-        db=db,
-        chunks=chunks,
-        kap_report_map=kap_report_map,
-        stock_symbol_map=stock_symbol_map,
+    return await embed_contents_batch(db=db, contents=contents, stock_symbol_map=stock_symbol_map)
+
+
+async def embed_chunks_batch(
+    db: AsyncSession,
+    chunks: list[Any],
+    kap_report_map: dict[int, KapReport] | None = None,
+    stock_symbol_map: dict[int, str] | None = None,
+) -> EmbeddingBatchResult:
+    if not chunks:
+        return EmbeddingBatchResult(total_processed=0, successful=0, failed=0, status="success", results=[])
+
+    if isinstance(chunks[0], DocumentContent):
+        return await embed_contents_batch(db=db, contents=chunks, stock_symbol_map=stock_symbol_map or {})
+
+    kap_report_map = kap_report_map or {}
+    stock_symbol_map = stock_symbol_map or {}
+    settings = get_settings()
+    results: list[EmbeddingResult] = []
+    successful = 0
+    failed = 0
+    valid_chunks: list[Any] = []
+    valid_reports: list[KapReport] = []
+
+    for chunk in chunks:
+        kap_report = kap_report_map.get(getattr(chunk, "kap_report_id", None))
+        if kap_report is None:
+            chunk.embedding_status = EmbeddingStatus.FAILED.value
+            results.append(
+                EmbeddingResult(
+                    chunk_id=chunk.id,
+                    success=False,
+                    error_message="Missing kap_report for chunk",
+                    status=EmbeddingStatus.FAILED,
+                )
+            )
+            failed += 1
+            continue
+        valid_chunks.append(chunk)
+        valid_reports.append(kap_report)
+
+    if not valid_chunks:
+        await db.commit()
+        status = "failed" if failed else "success"
+        return EmbeddingBatchResult(
+            total_processed=len(chunks),
+            successful=successful,
+            failed=failed,
+            status=status,
+            results=results,
+        )
+
+    try:
+        collection = _get_or_create_collection()
+    except Exception as exc:
+        error_message = f"ChromaDB connection error: {exc}"
+        for chunk in valid_chunks:
+            chunk.embedding_status = EmbeddingStatus.FAILED.value
+            results.append(
+                EmbeddingResult(
+                    chunk_id=chunk.id,
+                    success=False,
+                    error_message=error_message,
+                    status=EmbeddingStatus.FAILED,
+                )
+            )
+            failed += 1
+        await db.commit()
+        return EmbeddingBatchResult(
+            total_processed=len(chunks),
+            successful=successful,
+            failed=failed,
+            status="failed",
+            results=results,
+        )
+
+    texts = [chunk.chunk_text for chunk in valid_chunks]
+    async with httpx.AsyncClient() as client:
+        embeddings = await _get_embeddings_from_openrouter(
+            texts=texts,
+            client=client,
+            api_key=settings.openrouter_api_key,
+            timeout=settings.embedding_timeout,
+        )
+
+    ids = [chunk.chunk_text_hash or f"chunk_{chunk.id}" for chunk in valid_chunks]
+    metadatas = [
+        _build_chunk_metadata(
+            chunk=chunk,
+            kap_report=kap_report,
+            stock_symbol=stock_symbol_map.get(kap_report.stock_id, ""),
+        )
+        for chunk, kap_report in zip(valid_chunks, valid_reports, strict=False)
+    ]
+    documents = [chunk.chunk_text for chunk in valid_chunks]
+    collection.upsert(ids=ids, embeddings=embeddings, metadatas=metadatas, documents=documents)
+
+    for chunk, doc_id in zip(valid_chunks, ids, strict=False):
+        chunk.embedding_status = EmbeddingStatus.COMPLETED.value
+        chunk.chroma_document_id = doc_id
+        results.append(
+            EmbeddingResult(
+                chunk_id=chunk.id,
+                success=True,
+                chroma_document_id=doc_id,
+                status=EmbeddingStatus.COMPLETED,
+            )
+        )
+        successful += 1
+
+    await db.commit()
+    status = "success" if failed == 0 else "partial" if successful > 0 else "failed"
+    return EmbeddingBatchResult(
+        total_processed=len(chunks),
+        successful=successful,
+        failed=failed,
+        status=status,
+        results=results,
     )

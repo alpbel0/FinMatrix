@@ -70,6 +70,11 @@ class Settings(BaseSettings):
     # Query rewrite settings
     enable_query_rewrite: bool = False  # Default: disabled, truly optional
 
+    # RAG 2.0 document ingestion settings
+    rag_allowed_filing_types: str = "FR,FAR"
+    document_parser_backend: str = "docling"
+    parsed_markdown_storage_path: str = "data/parsed_markdown"
+
 
 @lru_cache
 def get_settings() -> Settings:

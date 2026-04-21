@@ -12,6 +12,16 @@ from app.services.data.provider_models import KapFiling
 from app.services.utils.logging import logger
 
 
+RAG_ALLOWED_FILING_TYPES = {"FR", "FAR"}
+
+
+def determine_rag_ingest_status(filing_type: str | None) -> tuple[str, str | None]:
+    normalized = (filing_type or "").upper()
+    if normalized in RAG_ALLOWED_FILING_TYPES:
+        return "ELIGIBLE", None
+    return "INELIGIBLE", "filing_type_filtered"
+
+
 def normalize_related_stocks(related_stocks: Sequence[str] | str | None) -> list[str] | None:
     """
     Normalize related_stocks string to JSON array for PostgreSQL JSONB storage.
@@ -85,6 +95,8 @@ async def map_kap_filing_to_model(
         provider=filing.provider.value,
         sync_status="PENDING",
         chunk_count=0,
+        rag_ingest_status=determine_rag_ingest_status(filing.filing_type)[0],
+        rag_ingest_reason=determine_rag_ingest_status(filing.filing_type)[1],
         # Enrichment fields
         summary=filing.summary,
         attachment_count=filing.attachment_count,
@@ -135,6 +147,8 @@ async def upsert_kap_filings(
             provider=filing.provider.value,
             sync_status="PENDING",
             chunk_count=0,
+            rag_ingest_status=determine_rag_ingest_status(filing.filing_type)[0],
+            rag_ingest_reason=determine_rag_ingest_status(filing.filing_type)[1],
             # Enrichment fields
             summary=filing.summary,
             attachment_count=filing.attachment_count,
@@ -151,6 +165,8 @@ async def upsert_kap_filings(
                 "pdf_url": stmt.excluded.pdf_url,
                 "published_at": stmt.excluded.published_at,
                 "provider": stmt.excluded.provider,
+                "rag_ingest_status": stmt.excluded.rag_ingest_status,
+                "rag_ingest_reason": stmt.excluded.rag_ingest_reason,
                 # Enrichment fields
                 "summary": stmt.excluded.summary,
                 "attachment_count": stmt.excluded.attachment_count,

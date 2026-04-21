@@ -105,6 +105,12 @@ def prepare_source_items(
             filing_type=metadata.get("filing_type", ""),
             source_url=metadata.get("source_url", ""),
             chunk_preview=chunk.get("chunk_text", "")[:100],
+            report_ids=[link.get("kap_report_id") for link in metadata.get("report_links", []) if link.get("kap_report_id")],
+            published_years=[year for year in metadata.get("published_years", []) if year is not None],
+            consistency_count=metadata.get("consistency_count", 1),
+            evidence_mode=metadata.get("evidence_mode", "single_report"),
+            latest_report_id=metadata.get("latest_kap_report_id") or kap_report_id,
+            evidence_note=_build_evidence_note(metadata),
         )
         sources.append(source)
 
@@ -131,6 +137,14 @@ def _chunk_to_dict(chunk: Any) -> dict[str, Any]:
     }
 
 
+def _build_evidence_note(metadata: dict[str, Any]) -> str | None:
+    years = metadata.get("published_years", [])
+    if len(years) > 1:
+        formatted = ", ".join(str(year) for year in years)
+        return f"Bu bilgi {formatted} raporlarinda tekrar edilmistir."
+    return None
+
+
 # ============================================================================
 # Core Agent Function
 # ============================================================================
@@ -142,6 +156,7 @@ async def run_retrieval(
     document_type: DocumentType,
     understanding: QueryUnderstandingResult | None = None,
     top_k: int = 5,
+    db=None,
 ) -> RetrievalAgentResult:
     """Run retrieval pipeline with optional query rewrite.
 
@@ -176,6 +191,8 @@ async def run_retrieval(
             query=retrieval_query,
             stock_symbol=resolved_symbol,
             top_k=top_k,
+            db=db,
+            filing_type=None if document_type == DocumentType.ANY else document_type.value,
         )
     except Exception as e:
         logger.error(f"Retrieval error: {e}")
@@ -190,17 +207,11 @@ async def run_retrieval(
     # Convert to dict format
     chunks = [_chunk_to_dict(c) for c in result.chunks]
 
-    # Step 3: Post-filter by filing_type
+    # Step 3: Fallback filing type filter for legacy retrieval results/tests
     if document_type == DocumentType.FR:
-        chunks = [
-            c for c in chunks
-            if c.get("metadata", {}).get("filing_type") == "FR"
-        ]
+        chunks = [c for c in chunks if c.get("metadata", {}).get("filing_type") == "FR"]
     elif document_type == DocumentType.FAR:
-        chunks = [
-            c for c in chunks
-            if c.get("metadata", {}).get("filing_type") == "FAR"
-        ]
+        chunks = [c for c in chunks if c.get("metadata", {}).get("filing_type") == "FAR"]
 
     # Step 4: Sufficiency check
     has_sufficient, confidence, total_chars = check_sufficient_context(chunks)
