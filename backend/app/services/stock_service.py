@@ -8,6 +8,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.stock import Stock
 from app.models.stock_price import StockPrice
 from app.services.data.mappers.stock_price_mapper import get_price_bars_for_stock
+from app.services.snapshot_service import (
+    get_historical_stock_snapshots_payload,
+    get_latest_stock_snapshot_payload,
+)
 
 
 async def get_all_stocks(db: AsyncSession, search: str | None = None) -> list[Stock]:
@@ -69,3 +73,18 @@ async def get_price_history(
         List of StockPrice model instances ordered by date ascending
     """
     return await get_price_bars_for_stock(db, symbol, start_date, end_date)
+
+
+async def get_latest_stock_snapshot(db: AsyncSession, symbol: str) -> dict:
+    """Get latest stored snapshot payload for a stock."""
+    return await get_latest_stock_snapshot_payload(db, symbol)
+
+
+async def get_stock_snapshot_history(
+    db: AsyncSession,
+    symbol: str,
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> dict:
+    """Get historical stored snapshots for a stock."""
+    return await get_historical_stock_snapshots_payload(db, symbol, start_date, end_date)

@@ -71,29 +71,33 @@ export function renderWatchlist(items) {
   if (!items || items.length === 0) {
     root.innerHTML = `
       <div class="empty-state">
-        <p class="muted">No stocks in watchlist. Add your first stock!</p>
+        <div class="empty-state-icon">⭐</div>
+        <p class="text-muted">No stocks in watchlist. Add your first stock!</p>
       </div>
     `;
     return;
   }
 
+  const changeClass = (change) => change >= 0 ? "text-success" : "text-danger";
+
   root.innerHTML = items.map((item) => `
     <div class="card watchlist-item" data-watchlist-id="${item.id}">
-      <div class="badge">${item.symbol}</div>
-      <h3>${item.latest_price ? `₺${item.latest_price.toFixed(2)}` : "N/A"}</h3>
-      <p class="muted">Daily change: ${formatPriceChange(item.price_change, item.price_change_percent)}</p>
-      <p class="muted">${item.company_name || ""}</p>
-      <div class="watchlist-actions">
-        <button class="button secondary notification-toggle" type="button" data-enabled="${item.notifications_enabled}">
-          ${item.notifications_enabled ? "Notifications On" : "Notifications Off"}
-        </button>
-        <button class="button danger remove-item" type="button">Remove</button>
+      <div class="flex-between mb-4">
+        <div>
+          <div class="stock-symbol">${item.symbol}</div>
+          <div class="stock-name">${item.company_name || ""}</div>
+        </div>
+        <button class="switch ${item.notifications_enabled ? "active" : ""}" data-enabled="${item.notifications_enabled}" title="${item.notifications_enabled ? "Notifications On" : "Notifications Off"}"></button>
       </div>
+      <div class="stock-price">${item.latest_price ? `₺${item.latest_price.toFixed(2)}` : "N/A"}</div>
+      <div class="stock-change ${changeClass(item.price_change)}">${formatPriceChange(item.price_change, item.price_change_percent)}</div>
+      <div class="divider"></div>
+      <button class="btn btn-danger" type="button" style="width: 100%;">Remove</button>
     </div>
   `).join("");
 
   // Bind event handlers
-  root.querySelectorAll(".notification-toggle").forEach((btn) => {
+  root.querySelectorAll(".switch").forEach((btn) => {
     btn.addEventListener("click", async (e) => {
       const card = e.target.closest(".watchlist-item");
       const id = parseInt(card.dataset.watchlistId, 10);
@@ -115,7 +119,7 @@ export function renderWatchlist(items) {
     });
   });
 
-  root.querySelectorAll(".remove-item").forEach((btn) => {
+  root.querySelectorAll(".btn-danger").forEach((btn) => {
     btn.addEventListener("click", async (e) => {
       const card = e.target.closest(".watchlist-item");
       const id = parseInt(card.dataset.watchlistId, 10);

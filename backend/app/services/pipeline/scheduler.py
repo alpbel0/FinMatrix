@@ -3,14 +3,15 @@
 This module provides APScheduler-based scheduling for:
 - Price sync: Every 15 minutes during BIST trading hours
 - Financial sync: Weekly (normal) + 4-hourly (reporting mode)
-- KAP sync: Hourly (BIST100), Daily (watchlist), 3-day (slow)
+- News sync: Hourly (BIST100), Daily (watchlist), 3-day (slow)
+- Report sync: Bi-weekly for FR/FAR disclosures
 - PDF download: Hourly
 - Chunking: Hourly (process downloaded PDFs)
 - Embedding: Every 10 minutes (embed pending chunks)
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -19,11 +20,13 @@ from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.database import AsyncSessionLocal
 from app.models.scheduler_setting import SchedulerSetting
 from app.models.pipeline_log import PipelineLog
 from app.services.data.market_data_service import batch_sync_prices
 from app.services.financials_service import batch_sync_financials
+from app.services.snapshot_service import sync_all_active_stock_snapshots
 from app.services.data.kap_data_service import batch_sync_kap_filings
 from app.services.data.pdf_download_service import (
     batch_download_pending_pdfs,
@@ -35,8 +38,8 @@ from app.services.pipeline.market_hours import is_bist_trading_hours
 from app.services.pipeline.job_policy import (
     get_all_active_symbols,
     get_bist100_symbols_from_provider,
+    get_non_priority_active_symbols,
     get_watchlist_symbols,
-    get_slow_sync_symbols,
 )
 from app.services.utils.logging import logger
 
@@ -170,10 +173,30 @@ def _kap_success_details(job_name: str, symbols: list[str], trigger: str, univer
         "job_name": job_name,
         "trigger": trigger,
         "universe": universe,
+        "pipeline_type": "report" if any(ft in {"FR", "FAR"} for ft in filing_types) else "news",
         "symbol_count": len(symbols),
         "filing_types": filing_types,
         "days_back": days_back,
     }
+
+
+def _build_report_sync_trigger() -> IntervalTrigger:
+    """Build the bi-weekly report trigger anchored to the configured night window."""
+    settings = get_settings()
+    start_hour = settings.report_sync_window_start_hour
+    end_hour = settings.report_sync_window_end_hour
+    report_hour = start_hour if start_hour <= end_hour else end_hour
+
+    now = datetime.now(scheduler.timezone)
+    start_date = now.replace(hour=report_hour, minute=0, second=0, microsecond=0)
+    if start_date <= now:
+        start_date = start_date + timedelta(days=1)
+
+    return IntervalTrigger(
+        days=settings.report_sync_interval_days,
+        start_date=start_date,
+        timezone="Europe/Istanbul",
+    )
 
 
 # ============================================================================
@@ -235,6 +258,38 @@ async def run_price_sync_job(
                 error_message=str(e),
                 details={"trigger": trigger, "job_name": job_name},
             )
+
+
+async def run_snapshot_sync_daily_job(
+    *,
+    symbols: list[str] | None = None,
+    trigger: str = "scheduled",
+    run_id: str | None = None,
+) -> None:
+    """Execute daily stock snapshot sync job."""
+    run_id = run_id or str(uuid.uuid4())
+
+    async with AsyncSessionLocal() as db:
+        try:
+            if symbols is not None:
+                logger.info("snapshot_sync_daily: Syncing %s symbols", len(symbols))
+                from app.services.snapshot_service import batch_sync_stock_snapshots
+
+                await batch_sync_stock_snapshots(
+                    db,
+                    symbols,
+                    run_id=run_id,
+                    trigger=trigger,
+                )
+            else:
+                logger.info("snapshot_sync_daily: Syncing all active symbols")
+                await sync_all_active_stock_snapshots(
+                    db,
+                    run_id=run_id,
+                    trigger=trigger,
+                )
+        except Exception:
+            logger.exception("snapshot_sync_daily: Failed with error")
 
 
 async def run_financials_weekly_job(
@@ -414,66 +469,103 @@ async def run_kap_sync_job(
             )
 
 
-async def run_kap_hourly_job(
+async def run_news_sync_hourly_job(
     *,
     symbols: list[str] | None = None,
     trigger: str = "scheduled",
     run_id: str | None = None,
 ) -> None:
-    """Execute hourly KAP sync for BIST100."""
+    """Execute hourly news sync for BIST100."""
     if symbols is None:
         symbols = await get_bist100_symbols_from_provider()
     await run_kap_sync_job(
-        job_name="kap_sync_hourly",
+        job_name="news_sync_hourly",
         symbols=symbols,
         trigger=trigger,
         run_id=run_id,
         universe="bist100",
-        filing_types=["FR"],
-        days_back=30,
+        filing_types=["ODA", "DG"],
+        days_back=3,
     )
 
 
-async def run_kap_watchlist_daily_job(
+async def run_news_sync_watchlist_job(
     *,
     symbols: list[str] | None = None,
     trigger: str = "scheduled",
     run_id: str | None = None,
 ) -> None:
-    """Execute daily KAP sync for watchlist stocks."""
+    """Execute daily news sync for watchlist stocks."""
     if symbols is None:
         async with AsyncSessionLocal() as db:
             symbols = await get_watchlist_symbols(db)
     await run_kap_sync_job(
-        job_name="kap_sync_watchlist_daily",
+        job_name="news_sync_watchlist",
         symbols=symbols,
         trigger=trigger,
         run_id=run_id,
         universe="watchlist",
-        filing_types=["FR"],
-        days_back=30,
+        filing_types=["ODA", "DG"],
+        days_back=3,
     )
 
 
-async def run_kap_slow_job(
+async def run_news_sync_slow_job(
     *,
     symbols: list[str] | None = None,
     trigger: str = "scheduled",
     run_id: str | None = None,
 ) -> None:
-    """Execute 3-day KAP sync for non-BIST100 non-watchlist stocks."""
+    """Execute slow news sync for non-priority active stocks."""
     if symbols is None:
         async with AsyncSessionLocal() as db:
-            symbols = await get_slow_sync_symbols(db)
+            symbols = await get_non_priority_active_symbols(db)
     await run_kap_sync_job(
-        job_name="kap_sync_slow",
+        job_name="news_sync_slow",
         symbols=symbols,
         trigger=trigger,
         run_id=run_id,
         universe="slow",
-        filing_types=["FR"],
-        days_back=30,
+        filing_types=["ODA", "DG"],
+        days_back=7,
     )
+
+
+async def run_report_sync_biweekly_job(
+    *,
+    symbols: list[str] | None = None,
+    trigger: str = "scheduled",
+    run_id: str | None = None,
+) -> None:
+    """Execute bi-weekly report sync for all active stocks."""
+    settings = get_settings()
+    if symbols is None:
+        async with AsyncSessionLocal() as db:
+            symbols = await get_all_active_symbols(db)
+    await run_kap_sync_job(
+        job_name="report_sync_biweekly",
+        symbols=symbols,
+        trigger=trigger,
+        run_id=run_id,
+        universe="all_active",
+        filing_types=["FR", "FAR"],
+        days_back=max(settings.report_sync_interval_days, 14),
+    )
+
+
+async def run_kap_hourly_job(*, symbols: list[str] | None = None, trigger: str = "scheduled", run_id: str | None = None) -> None:
+    """Backward-compatible alias for hourly news sync."""
+    await run_news_sync_hourly_job(symbols=symbols, trigger=trigger, run_id=run_id)
+
+
+async def run_kap_watchlist_daily_job(*, symbols: list[str] | None = None, trigger: str = "scheduled", run_id: str | None = None) -> None:
+    """Backward-compatible alias for watchlist news sync."""
+    await run_news_sync_watchlist_job(symbols=symbols, trigger=trigger, run_id=run_id)
+
+
+async def run_kap_slow_job(*, symbols: list[str] | None = None, trigger: str = "scheduled", run_id: str | None = None) -> None:
+    """Backward-compatible alias for slow news sync."""
+    await run_news_sync_slow_job(symbols=symbols, trigger=trigger, run_id=run_id)
 
 
 async def run_pdf_download_job(
@@ -503,14 +595,14 @@ async def run_pdf_download_job(
 
             # Phase 1: Download pending PDFs (service returns result, no log)
             pending_result = await batch_download_pending_pdfs(
-                db, limit=limit, filing_types=["FR"]
+                db, limit=limit, filing_types=["FR", "FAR", "ODA"]
             )
 
             # Phase 2: Retry failed downloads (remaining slots)
             if pending_result.total_processed < limit:
                 remaining = limit - pending_result.total_processed
                 retry_result = await batch_retry_failed_downloads(
-                    db, limit=remaining
+                    db, limit=remaining, filing_types=["FR", "FAR", "ODA"]
                 )
                 # Combine results for final log
                 total_processed = pending_result.total_processed + retry_result.total_processed
@@ -717,6 +809,7 @@ async def run_embedding_job(
 async def start_scheduler() -> None:
     """Start the scheduler and register all jobs."""
     logger.info("Starting scheduler...")
+    settings = get_settings()
 
     # Job 1: Price sync - every 15 minutes
     scheduler.add_job(
@@ -736,6 +829,17 @@ async def start_scheduler() -> None:
         replace_existing=True,
     )
 
+    scheduler.add_job(
+        run_snapshot_sync_daily_job,
+        trigger=CronTrigger(hour=23, minute=0, timezone="Europe/Istanbul"),
+        id="snapshot_sync_daily",
+        name="Snapshot Sync Daily",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=3600,
+    )
+
     # Job 2b: Financials reporting - every 4 hours
     scheduler.add_job(
         run_financials_reporting_job,
@@ -745,41 +849,71 @@ async def start_scheduler() -> None:
         replace_existing=True,
     )
 
-    # Job 3: KAP hourly
+    if settings.news_sync_hourly_enabled:
+        scheduler.add_job(
+            run_news_sync_hourly_job,
+            trigger=IntervalTrigger(hours=1),
+            id="news_sync_hourly",
+            name="News Sync Hourly",
+            replace_existing=True,
+            max_instances=1,
+            coalesce=True,
+            misfire_grace_time=1800,
+        )
+
     scheduler.add_job(
-        run_kap_hourly_job,
-        trigger=IntervalTrigger(hours=1),
-        id="kap_sync_hourly",
-        name="KAP Sync Hourly",
+        run_news_sync_watchlist_job,
+        trigger=CronTrigger(
+            hour=settings.news_sync_watchlist_hour,
+            minute=0,
+            timezone="Europe/Istanbul",
+        ),
+        id="news_sync_watchlist",
+        name="News Sync Watchlist Daily",
         replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=3600,
     )
 
-    # Job 4: KAP watchlist daily - 21:00 Istanbul
     scheduler.add_job(
-        run_kap_watchlist_daily_job,
-        trigger=CronTrigger(hour=21, minute=0, timezone="Europe/Istanbul"),
-        id="kap_sync_watchlist_daily",
-        name="KAP Sync Watchlist Daily",
+        run_news_sync_slow_job,
+        trigger=CronTrigger(
+            day=f"*/{settings.news_sync_slow_interval_days}",
+            hour=settings.news_sync_slow_hour,
+            minute=0,
+            timezone="Europe/Istanbul",
+        ),
+        id="news_sync_slow",
+        name="News Sync Slow",
         replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=7200,
     )
 
-    # Job 5: KAP slow - every 3 days at 02:00
     scheduler.add_job(
-        run_kap_slow_job,
-        trigger=CronTrigger(day="*/3", hour=2, minute=0, timezone="Europe/Istanbul"),
-        id="kap_sync_slow",
-        name="KAP Sync Slow (3-day)",
+        run_report_sync_biweekly_job,
+        trigger=_build_report_sync_trigger(),
+        id="report_sync_biweekly",
+        name="Report Sync Biweekly",
         replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=7200,
     )
 
-    # Job 6: PDF Download - hourly
-    scheduler.add_job(
-        run_pdf_download_job,
-        trigger=IntervalTrigger(hours=1),
-        id="pdf_download_hourly",
-        name="PDF Download Hourly",
-        replace_existing=True,
-    )
+    if settings.pdf_download_hourly_enabled:
+        scheduler.add_job(
+            run_pdf_download_job,
+            trigger=IntervalTrigger(hours=1),
+            id="pdf_download_hourly",
+            name="PDF Download Hourly",
+            replace_existing=True,
+            max_instances=1,
+            coalesce=True,
+            misfire_grace_time=1800,
+        )
 
     # Job 7: Chunking - hourly (process PDFs that completed download)
     scheduler.add_job(

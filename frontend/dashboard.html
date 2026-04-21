@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>FinMatrix - Dashboard</title>
+  <link rel="stylesheet" href="/css/variables.css">
   <link rel="stylesheet" href="/css/base.css">
   <link rel="stylesheet" href="/css/layout.css">
   <link rel="stylesheet" href="/css/components.css">
@@ -18,40 +19,123 @@
         <a href="/watchlist.html">Watchlist</a>
         <a href="/chat.html">Chat</a>
       </nav>
-      <div class="muted" data-auth-state>Guest</div>
+      <div class="text-muted" data-auth-state style="font-size: var(--font-size-sm);">Guest</div>
     </header>
+
     <section class="page-header">
-      <h1>Stock Dashboard</h1>
-      <div class="search-box">
-        <input type="text" id="stock-search" class="input" placeholder="Search symbol (THYAO, GARAN...)" maxlength="10">
-        <button id="search-btn" class="button">Go</button>
-      </div>
-      <div class="card" id="stock-search-results" style="display: none; margin-top: 12px;">
-        <div class="card-header">Search Results</div>
-        <div class="list" id="stock-search-results-list"></div>
-      </div>
+      <h1 class="page-title">Stock Dashboard</h1>
+      <p class="page-subtitle">Search and analyze BIST stocks</p>
     </section>
-    <section class="grid" id="dashboard-root">
-      <!-- Stock info card -->
-      <div class="card" id="stock-info-card">
-        <div class="card-header">
-          <span class="badge" id="stock-symbol-badge">--</span>
-          <span class="muted" id="stock-company-name">Select a stock</span>
+
+    <!-- Search Box -->
+    <div class="card mb-6">
+      <div class="flex-between" style="gap: var(--space-4);">
+        <input type="text" id="stock-search" class="input" placeholder="Search symbol (THYAO, GARAN, ASELS...)" maxlength="10" style="flex: 1;">
+        <button id="search-btn" class="btn btn-primary">Search</button>
+      </div>
+      <div id="stock-search-results" class="mt-4" style="display: none;">
+        <div id="stock-search-results-list"></div>
+      </div>
+    </div>
+
+    <!-- Main Dashboard Grid -->
+    <div class="grid" style="grid-template-columns: 1fr 380px;">
+      <!-- Left Column -->
+      <div>
+        <!-- Stock Info Card -->
+        <div class="card mb-6" id="stock-info-card">
+          <div class="flex-between">
+            <div>
+              <span class="badge badge-accent" id="stock-symbol-badge">--</span>
+              <span class="text-muted" id="stock-company-name" style="margin-left: var(--space-3);">Select a stock</span>
+            </div>
+            <div id="stock-sector" class="text-muted" style="font-size: var(--font-size-sm);"></div>
+          </div>
+        </div>
+
+        <!-- Price Chart Card -->
+        <div class="card mb-6" id="price-chart-card">
+          <div class="card-header">
+            <span class="card-title">Price History</span>
+          </div>
+          <div class="chart-area">
+            <div class="loading-state" id="chart-loading">
+              <div class="spinner" style="margin: 0 auto var(--space-4);"></div>
+              <span>Loading chart...</span>
+            </div>
+            <canvas id="price-chart" style="display: none;"></canvas>
+          </div>
+        </div>
+
+        <!-- Metrics Cards -->
+        <div class="grid four" id="metrics-placeholder">
+          <div class="card metric-card">
+            <div class="loading-state">
+              <div class="spinner" style="margin: 0 auto;"></div>
+            </div>
+          </div>
+          <div class="card metric-card">
+            <div class="loading-state">
+              <div class="spinner" style="margin: 0 auto;"></div>
+            </div>
+          </div>
+          <div class="card metric-card">
+            <div class="loading-state">
+              <div class="spinner" style="margin: 0 auto;"></div>
+            </div>
+          </div>
+          <div class="card metric-card">
+            <div class="loading-state">
+              <div class="spinner" style="margin: 0 auto;"></div>
+            </div>
+          </div>
         </div>
       </div>
-      <!-- Price chart card -->
-      <div class="card wide" id="price-chart-card">
-        <div class="card-header">Price History</div>
-        <div class="chart-area">
-          <div class="loading-state" id="chart-loading">Loading chart...</div>
-          <canvas id="price-chart" style="display: none;"></canvas>
+
+      <!-- Right Sidebar -->
+      <div>
+        <!-- Quick Stats Widget -->
+        <div class="card mb-6">
+          <div class="card-header">
+            <span class="card-title">Quick Stats</span>
+          </div>
+          <div id="snapshot-status" class="text-muted" style="font-size: var(--font-size-xs); margin-bottom: var(--space-3);">
+            Snapshot not loaded yet.
+          </div>
+          <div class="grid two" style="gap: var(--space-4);">
+            <div class="metric-card">
+              <div class="metric-value" id="stat-pe">--</div>
+              <div class="metric-label">P/E Ratio</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value" id="stat-roe">--</div>
+              <div class="metric-label">ROE</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value" id="stat-de">--</div>
+              <div class="metric-label">Debt/Equity</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value" id="stat-npg">--</div>
+              <div class="metric-label">Net Profit Growth</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Featured News Widget -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Latest News</span>
+            <a href="/index.html" class="text-accent" style="font-size: var(--font-size-xs);">View all</a>
+          </div>
+          <div id="featured-news">
+            <div class="text-muted" style="font-size: var(--font-size-sm); padding: var(--space-4); text-align: center;">
+              Search a stock to see news
+            </div>
+          </div>
         </div>
       </div>
-      <!-- Metrics cards -->
-      <div class="card" id="metrics-placeholder">
-        <div class="loading-state">Loading metrics...</div>
-      </div>
-    </section>
+    </div>
   </div>
   <script type="module" src="/js/dashboard-main.js"></script>
 </body>

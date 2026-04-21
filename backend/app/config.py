@@ -17,6 +17,16 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000"
     log_level: str = "INFO"
 
+    # Scheduler Settings
+    news_sync_hourly_enabled: bool = True
+    news_sync_watchlist_hour: int = 21
+    news_sync_slow_interval_days: int = 3
+    news_sync_slow_hour: int = 2
+    report_sync_interval_days: int = 14
+    report_sync_window_start_hour: int = 3
+    report_sync_window_end_hour: int = 5
+    pdf_download_hourly_enabled: bool = True
+
     # PDF Download Settings
     pdf_storage_path: str = "data/pdfs"  # Relative to backend directory
     pdf_max_downloads_per_run: int = 50

@@ -307,11 +307,22 @@ class TestGraphLevelTrace:
             call_order.append("numerical_analysis")
             return numerical
 
-        async def mock_text(db, user_id, session_id, query, http_client):
+        async def mock_text(
+            *,
+            db,
+            user_id,
+            session_id,
+            query,
+            resolved_symbols,
+            classification,
+            http_client,
+        ):
             call_order.append("text_analysis")
+            assert resolved_symbols == ["THYAO"]
+            assert classification is not None
             return text
 
-        def mock_merge(classification, resolved_symbol, numerical_result, text_result):
+        def mock_merge(classification, resolved_symbols=None, resolved_symbol=None, numerical_result=None, text_result=None):
             call_order.append("merge")
             return rag
 
@@ -343,6 +354,7 @@ class TestGraphLevelTrace:
                 "session_id": 42,
                 "http_client": None,
                 "classification": None,
+                "resolved_symbols": None,
                 "resolved_symbol": None,
                 "text_result": None,
                 "numerical_result": None,

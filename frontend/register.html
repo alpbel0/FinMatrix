@@ -4,21 +4,39 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>FinMatrix - Register</title>
+  <link rel="stylesheet" href="/css/variables.css">
   <link rel="stylesheet" href="/css/base.css">
   <link rel="stylesheet" href="/css/layout.css">
   <link rel="stylesheet" href="/css/components.css">
 </head>
 <body>
-  <div class="app-shell">
-    <section class="page-header"><h1>Create Account</h1><p class="muted">Join FinMatrix for BIST analysis.</p></section>
-    <form class="card form-stack" id="register-form">
-      <input class="input" type="text" id="username" placeholder="Username" required>
-      <input class="input" type="email" id="email" placeholder="Email" required>
-      <input class="input" type="password" id="password" placeholder="Password" required minlength="6">
-      <button class="button" type="submit">Create Account</button>
-      <p id="error-message" class="error" style="display: none; color: #dc3545;"></p>
-      <a class="muted" href="/login.html">Already have an account?</a>
-    </form>
+  <div class="auth-container">
+    <div class="auth-card card">
+      <div class="auth-header">
+        <div class="auth-logo">FinMatrix</div>
+        <p class="auth-subtitle">Join FinMatrix for BIST analysis</p>
+      </div>
+      <form class="form-stack" id="register-form">
+        <div class="input-group">
+          <label class="input-label" for="username">Username</label>
+          <input class="input" type="text" id="username" placeholder="yourname" required>
+        </div>
+        <div class="input-group">
+          <label class="input-label" for="email">Email</label>
+          <input class="input" type="email" id="email" placeholder="you@example.com" required>
+        </div>
+        <div class="input-group">
+          <label class="input-label" for="password">Password</label>
+          <input class="input" type="password" id="password" placeholder="Min. 6 characters" required minlength="6">
+        </div>
+        <button class="btn btn-primary" type="submit" style="width: 100%; margin-top: var(--space-2);">Create Account</button>
+        <p id="error-message" class="text-danger" style="display: none; font-size: var(--font-size-sm);"></p>
+      </form>
+      <div class="divider"></div>
+      <p class="text-center" style="font-size: var(--font-size-sm); color: var(--text-secondary);">
+        Already have an account? <a href="/login.html" class="text-accent">Sign in</a>
+      </p>
+    </div>
   </div>
   <script type="module" src="/js/register-main.js"></script>
 </body>

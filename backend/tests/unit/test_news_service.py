@@ -26,23 +26,22 @@ from app.services.news_service import (
 class TestDeriveCategory:
     """Tests for derive_category function."""
 
-    def test_fr_returns_financial(self):
-        """FR filing type should return 'financial' category."""
-        assert derive_category("FR") == "financial"
+    def test_fr_returns_financial_activity(self):
+        """FR filing type should return unified financial/activity category."""
+        assert derive_category("FR") == "financial_activity"
 
-    def test_far_returns_activity(self):
-        """FAR filing type should return 'activity' category."""
-        assert derive_category("FAR") == "activity"
+    def test_far_returns_financial_activity(self):
+        """FAR filing type should return unified financial/activity category."""
+        assert derive_category("FAR") == "financial_activity"
 
-    def test_other_returns_kap(self):
-        """Other filing types should return 'kap' category."""
-        assert derive_category("ODA") == "kap"
-        assert derive_category("DVB") == "kap"
-        assert derive_category("DEG") == "kap"
+    def test_oda_and_dg_return_kap_disclosures(self):
+        """ODA and DG should map to the KAP disclosures category."""
+        assert derive_category("ODA") == "kap_disclosures"
+        assert derive_category("DG") == "kap_disclosures"
 
-    def test_none_returns_kap(self):
-        """None filing type should return 'kap' category."""
-        assert derive_category(None) == "kap"
+    def test_none_returns_kap_disclosures(self):
+        """None filing type should default to the disclosures category."""
+        assert derive_category(None) == "kap_disclosures"
 
 
 class TestTransformKapToNews:
@@ -69,7 +68,7 @@ class TestTransformKapToNews:
 
         assert result is not None
         assert result.title == "2025 Annual Report"
-        assert result.category == "financial"
+        assert result.category == "financial_activity"
         assert result.source_type == "kap"
         assert result.source_id == kap.id
         assert result.filing_type == "FR"
@@ -129,14 +128,16 @@ class TestGetNewsFeed:
         news1 = News(
             stock_id=stock.id,
             title="News 1",
-            category="financial",
+            category="financial_activity",
+            filing_type="FR",
             source_type="kap",
             source_id=1,
         )
         news2 = News(
             stock_id=stock.id,
             title="News 2",
-            category="activity",
+            category="financial_activity",
+            filing_type="FAR",
             source_type="kap",
             source_id=2,
         )
@@ -157,24 +158,26 @@ class TestGetNewsFeed:
         news1 = News(
             stock_id=stock.id,
             title="Financial News",
-            category="financial",
+            category="financial_activity",
+            filing_type="FR",
             source_type="kap",
             source_id=1,
         )
         news2 = News(
             stock_id=stock.id,
             title="Activity News",
-            category="activity",
+            category="financial_activity",
+            filing_type="FAR",
             source_type="kap",
             source_id=2,
         )
         db_session.add_all([news1, news2])
         await db_session.commit()
 
-        result = await get_news_feed(db_session, user_id=1, category="financial")
+        result = await get_news_feed(db_session, user_id=1, category="financial_activity")
 
-        assert len(result) == 1
-        assert result[0].category == "financial"
+        assert len(result) == 2
+        assert all(item.filing_type in {"FR", "FAR"} for item in result)
 
     @pytest.mark.asyncio
     async def test_filters_by_stock_id(self, db_session: AsyncSession):
@@ -187,14 +190,16 @@ class TestGetNewsFeed:
         news1 = News(
             stock_id=stock1.id,
             title="THYAO News",
-            category="kap",
+            category="kap_disclosures",
+            filing_type="ODA",
             source_type="kap",
             source_id=1,
         )
         news2 = News(
             stock_id=stock2.id,
             title="GARAN News",
-            category="kap",
+            category="kap_disclosures",
+            filing_type="DG",
             source_type="kap",
             source_id=2,
         )
@@ -220,7 +225,7 @@ class TestGetNewsDetail:
         news = News(
             stock_id=stock.id,
             title="Test News",
-            category="kap",
+            category="kap_disclosures",
             source_type="kap",
             source_id=1,
         )
@@ -254,7 +259,7 @@ class TestGetUserNewsStatus:
         news = News(
             stock_id=stock.id,
             title="Test News",
-            category="kap",
+            category="kap_disclosures",
             source_type="kap",
             source_id=1,
         )
@@ -292,7 +297,7 @@ class TestMarkNewsRead:
         news = News(
             stock_id=stock.id,
             title="Test News",
-            category="kap",
+            category="kap_disclosures",
             source_type="kap",
             source_id=1,
         )
@@ -384,7 +389,8 @@ class TestGetUnreadCount:
             news = News(
                 stock_id=stock.id,
                 title=f"News {i}",
-                category="kap",
+                category="financial_activity" if i < 3 else "kap_disclosures",
+                filing_type="FR" if i < 3 else "ODA",
                 source_type="kap",
                 source_id=i + 1,
             )
@@ -403,6 +409,28 @@ class TestGetUnreadCount:
         result = await get_unread_count(db_session, user.id)
 
         assert result == 3  # 5 total - 2 read
+
+    @pytest.mark.asyncio
+    async def test_calculates_filtered_unread_count_for_financial_activity(self, db_session: AsyncSession):
+        user = User(username="testuser2", email="test2@example.com", password_hash="hash")
+        stock = Stock(symbol="THYAO", company_name="Turk Hava", is_active=True)
+        db_session.add_all([user, stock])
+        await db_session.commit()
+
+        news_items = [
+            News(stock_id=stock.id, title="FR 1", category="financial_activity", filing_type="FR", source_type="kap", source_id=11),
+            News(stock_id=stock.id, title="FAR 1", category="financial_activity", filing_type="FAR", source_type="kap", source_id=12),
+            News(stock_id=stock.id, title="ODA 1", category="kap_disclosures", filing_type="ODA", source_type="kap", source_id=13),
+        ]
+        db_session.add_all(news_items)
+        await db_session.commit()
+
+        db_session.add(UserNews(user_id=user.id, news_id=news_items[0].id, is_read=True))
+        await db_session.commit()
+
+        result = await get_unread_count(db_session, user.id, category="financial_activity")
+
+        assert result == 1
 
 
 class TestBatchTransformKapToNews:

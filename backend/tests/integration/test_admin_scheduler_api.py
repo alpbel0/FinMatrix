@@ -43,7 +43,7 @@ class TestAdminSchedulerApi:
                 AsyncMock(return_value=["THYAO", "GARAN"]),
             ),
             patch(
-                "app.routers.admin.run_kap_watchlist_daily_job",
+                "app.routers.admin.run_news_sync_watchlist_job",
                 AsyncMock(return_value=None),
             ) as mock_watchlist_job,
         ):
@@ -89,6 +89,34 @@ class TestAdminSchedulerApi:
         assert mock_price_job.await_args.kwargs["symbols"] == ["THYAO", "GARAN", "ASELS"]
         assert mock_price_job.await_args.kwargs["trigger"] == "manual"
         assert mock_price_job.await_args.kwargs["run_id"] == payload["run_id"]
+
+    @pytest.mark.asyncio
+    async def test_manual_snapshot_trigger_passes_manual_run_id_and_symbols(self, client, db_session, override_admin):
+        with (
+            patch(
+                "app.routers.admin.get_symbols_by_universe",
+                AsyncMock(return_value=["THYAO", "GARAN"]),
+            ),
+            patch(
+                "app.routers.admin.run_snapshot_sync_daily_job",
+                AsyncMock(return_value=None),
+            ) as mock_snapshot_job,
+        ):
+            response = await client.post(
+                "/api/admin/scheduler/run/snapshots",
+                headers={"Authorization": "Bearer test-token"},
+                json={"universe": "all"},
+            )
+
+            await asyncio.sleep(0)
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["symbols_count"] == 2
+        mock_snapshot_job.assert_awaited_once()
+        assert mock_snapshot_job.await_args.kwargs["symbols"] == ["THYAO", "GARAN"]
+        assert mock_snapshot_job.await_args.kwargs["trigger"] == "manual"
+        assert mock_snapshot_job.await_args.kwargs["run_id"] == payload["run_id"]
 
     @pytest.mark.asyncio
     async def test_scheduler_status_reads_scheduler_job_logs(self, client, db_session, override_admin):

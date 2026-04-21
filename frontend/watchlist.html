@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>FinMatrix - Watchlist</title>
+  <link rel="stylesheet" href="/css/variables.css">
   <link rel="stylesheet" href="/css/base.css">
   <link rel="stylesheet" href="/css/layout.css">
   <link rel="stylesheet" href="/css/components.css">
@@ -18,23 +19,41 @@
         <a href="/watchlist.html">Watchlist</a>
         <a href="/chat.html">Chat</a>
       </nav>
-      <div class="muted" data-auth-state>Guest</div>
+      <div class="text-muted" data-auth-state style="font-size: var(--font-size-sm);">Guest</div>
     </header>
+
     <section class="page-header">
-      <h1>Watchlist</h1>
-      <p class="muted">Track your stocks and manage notification preferences.</p>
+      <h1 class="page-title">Watchlist</h1>
+      <p class="page-subtitle">Track your stocks and manage notification preferences</p>
     </section>
-    <section class="card">
-      <form id="watchlist-form">
-        <label for="watchlist-symbol" class="muted">Add stock by symbol</label>
-        <div class="form-row">
-          <input id="watchlist-symbol" name="symbol" type="text" placeholder="THYAO" autocomplete="off" required>
-          <button class="button primary" type="submit">Add</button>
+
+    <!-- Add Stock Form -->
+    <div class="card mb-6">
+      <form id="watchlist-form" class="flex-between" style="gap: var(--space-4);">
+        <div class="input-group" style="flex: 1;">
+          <label class="input-label" for="watchlist-symbol">Add stock by symbol</label>
+          <input id="watchlist-symbol" name="symbol" type="text" class="input" placeholder="THYAO" autocomplete="off" required>
         </div>
-        <p class="muted" id="watchlist-feedback" aria-live="polite"></p>
+        <button class="btn btn-primary" type="submit" style="align-self: flex-end;">Add</button>
       </form>
-    </section>
-    <section class="grid three" id="watchlist-root"></section>
+      <p class="text-muted mt-4" id="watchlist-feedback" style="font-size: var(--font-size-sm);" aria-live="polite"></p>
+    </div>
+
+    <!-- Watchlist Grid -->
+    <div class="grid three" id="watchlist-root"></div>
+
+    <!-- Upcoming KAP Filings Widget -->
+    <div class="card mt-6">
+      <div class="card-header">
+        <span class="card-title">Upcoming KAP Filings</span>
+        <span class="badge badge-warning">Soon</span>
+      </div>
+      <div id="upcoming-filings">
+        <div class="text-muted" style="font-size: var(--font-size-sm); text-align: center; padding: var(--space-4);">
+          No upcoming filings
+        </div>
+      </div>
+    </div>
   </div>
   <script type="module" src="/js/watchlist-main.js"></script>
 </body>

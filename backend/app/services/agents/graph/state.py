@@ -43,7 +43,7 @@ class AgentState(TypedDict, total=False):
         session_id: Active chat session ID.
         http_client: Shared async HTTP client. Nodes create their own if None.
         classification: Query classification result from classify_query_node.
-        resolved_symbol: Canonical symbol after resolve_symbol_node.
+        resolved_symbols: Canonical symbols after resolve_symbol_node.
         text_result: Text analysis result from text_analysis_node.
         numerical_result: Numerical analysis result from numerical_analysis_node.
         response: Final merged response from merge_node or fallback_node.
@@ -56,7 +56,7 @@ class AgentState(TypedDict, total=False):
     session_id: int
     http_client: httpx.AsyncClient | None
     classification: QueryClassificationResult | None
-    resolved_symbol: str | None
+    resolved_symbols: list[str] | None
     text_result: TextAnalysisResult | None
     numerical_result: NumericalAnalysisResult | None
     response: RAGResponse | None

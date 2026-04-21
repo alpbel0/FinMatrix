@@ -35,3 +35,27 @@ export async function getPriceHistory(symbol, startDate = null, endDate = null) 
   const query = params.toString() ? `?${params.toString()}` : "";
   return apiFetch(`/api/stocks/${symbol.toUpperCase()}/prices${query}`);
 }
+
+/**
+ * Get latest stored snapshot for a stock.
+ * @param {string} symbol - Stock symbol
+ * @returns {Promise<object>}
+ */
+export async function getLatestStockSnapshot(symbol) {
+  return apiFetch(`/api/stocks/${symbol.toUpperCase()}/snapshot/latest`);
+}
+
+/**
+ * Get historical stored snapshots for a stock.
+ * @param {string} symbol - Stock symbol
+ * @param {string|null} startDate - ISO date string
+ * @param {string|null} endDate - ISO date string
+ * @returns {Promise<object>}
+ */
+export async function getHistoricalStockSnapshots(symbol, startDate = null, endDate = null) {
+  const params = new URLSearchParams();
+  if (startDate) params.set("start_date", startDate);
+  if (endDate) params.set("end_date", endDate);
+  const query = params.toString() ? `?${params.toString()}` : "";
+  return apiFetch(`/api/stocks/${symbol.toUpperCase()}/snapshots${query}`);
+}

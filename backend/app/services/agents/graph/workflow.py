@@ -50,9 +50,13 @@ def _route_after_symbol(state: AgentState) -> Literal["fallback", "numerical_ana
     return "fallback"
 
 
-def _route_after_numerical(state: AgentState) -> Literal["text_analysis", "merge"]:
+def _route_after_numerical(state: AgentState) -> Literal["fallback", "text_analysis", "merge"]:
     """Route after numerical analysis based on whether text analysis is also needed."""
     classification = state.get("classification")
+    fallback_reason = state.get("fallback_reason")
+
+    if fallback_reason is not None:
+        return "fallback"
 
     # Safe getter — classification should never be None here, but we guard anyway
     if classification is not None and classification.needs_text_analysis:
@@ -60,6 +64,20 @@ def _route_after_numerical(state: AgentState) -> Literal["text_analysis", "merge
 
     # default → merge
     return "merge"
+
+
+def _route_after_text_analysis(state: AgentState) -> Literal["merge", "fallback"]:
+    """Route after text analysis, falling back on node errors."""
+    if state.get("fallback_reason") is not None:
+        return "fallback"
+    return "merge"
+
+
+def _route_after_merge(state: AgentState) -> Literal["end", "fallback"]:
+    """Route after merge, falling back when merge failed."""
+    if state.get("fallback_reason") is not None:
+        return "fallback"
+    return "end"
 
 
 # ---------------------------------------------------------------------------
@@ -94,8 +112,8 @@ def build_workflow() -> StateGraph:
     graph.add_edge("classify_query", "resolve_symbol")
     graph.add_conditional_edges("resolve_symbol", _route_after_symbol)
     graph.add_conditional_edges("numerical_analysis", _route_after_numerical)
-    graph.add_edge("text_analysis", "merge")
-    graph.add_edge("merge", END)
+    graph.add_conditional_edges("text_analysis", _route_after_text_analysis)
+    graph.add_conditional_edges("merge", _route_after_merge, {"end": END, "fallback": "fallback"})
     graph.add_edge("fallback", END)
 
     return graph

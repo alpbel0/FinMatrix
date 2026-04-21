@@ -23,10 +23,12 @@ from app.services.auth_service import get_current_user
 from app.services.pipeline.scheduler import (
     get_scheduler_status,
     run_price_sync_job,
+    run_snapshot_sync_daily_job,
     run_financials_weekly_job,
-    run_kap_hourly_job,
-    run_kap_watchlist_daily_job,
-    run_kap_slow_job,
+    run_news_sync_hourly_job,
+    run_news_sync_watchlist_job,
+    run_news_sync_slow_job,
+    run_report_sync_biweekly_job,
     run_kap_sync_job,
 )
 from app.services.pipeline.job_policy import get_symbols_by_universe
@@ -70,11 +72,14 @@ async def get_status(
     # Get last runs from pipeline_logs
     job_names = [
         "price_sync",
+        "snapshot_sync_daily",
         "financials_sync_weekly",
         "financials_sync_reporting",
-        "kap_sync_hourly",
-        "kap_sync_watchlist_daily",
-        "kap_sync_slow",
+        "news_sync_hourly",
+        "news_sync_watchlist",
+        "news_sync_slow",
+        "report_sync_biweekly",
+        "pdf_download_hourly",
     ]
 
     jobs_status: dict[str, JobStatus] = {}
@@ -217,6 +222,36 @@ async def trigger_financials_sync(
     )
 
 
+@router.post("/scheduler/run/snapshots", response_model=ManualSyncResponse)
+async def trigger_snapshot_sync(
+    request: ManualSyncRequest,
+    db: AsyncSession = Depends(get_db_session),
+    admin_user: User = Depends(get_admin_user),
+) -> ManualSyncResponse:
+    """Manually trigger a stock snapshot sync job."""
+    import asyncio
+    import uuid
+
+    logger.info(
+        "Manual snapshot sync triggered by %s for universe=%s",
+        admin_user.username,
+        request.universe,
+    )
+
+    symbols = await get_symbols_by_universe(db, request.universe)
+    run_id = str(uuid.uuid4())
+    asyncio.create_task(
+        run_snapshot_sync_daily_job(symbols=symbols, trigger="manual", run_id=run_id)
+    )
+
+    return ManualSyncResponse(
+        run_id=run_id,
+        status="triggered",
+        symbols_count=len(symbols),
+        message="Snapshot sync job triggered. Check pipeline_logs for results.",
+    )
+
+
 @router.post("/scheduler/run/kap", response_model=ManualSyncResponse)
 async def trigger_kap_sync(
     request: ManualSyncRequest,
@@ -243,20 +278,20 @@ async def trigger_kap_sync(
     import asyncio
 
     if request.universe == "bist100":
-        task = run_kap_hourly_job(symbols=symbols, trigger="manual", run_id=run_id)
+        task = run_news_sync_hourly_job(symbols=symbols, trigger="manual", run_id=run_id)
     elif request.universe == "watchlist":
-        task = run_kap_watchlist_daily_job(symbols=symbols, trigger="manual", run_id=run_id)
+        task = run_news_sync_watchlist_job(symbols=symbols, trigger="manual", run_id=run_id)
     elif request.universe == "slow":
-        task = run_kap_slow_job(symbols=symbols, trigger="manual", run_id=run_id)
+        task = run_news_sync_slow_job(symbols=symbols, trigger="manual", run_id=run_id)
     else:
         task = run_kap_sync_job(
-            job_name="kap_sync_manual",
+            job_name="news_sync_manual",
             symbols=symbols,
             trigger="manual",
             run_id=run_id,
             universe=request.universe,
-            filing_types=["FR"],
-            days_back=30,
+            filing_types=["ODA", "DG"],
+            days_back=3,
         )
 
     asyncio.create_task(task)

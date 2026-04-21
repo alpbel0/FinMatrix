@@ -98,11 +98,10 @@ def get_query_classifier_agent() -> Any:
 def _extract_symbol_candidates(query: str) -> list[str]:
     """Extract obvious symbol candidates without hitting the database."""
     candidates: list[str] = []
-    query_upper = query.upper()
-    tokens = re.split(r"[\s,.;:!?/\\()\[\]{}]+", query_upper)
+    raw_tokens = re.split(r"[\s,.;:!?/\\()\[\]{}]+", query)
 
-    for token in tokens:
-        normalized = token.strip()
+    for raw_token in raw_tokens:
+        normalized = raw_token.strip().upper()
         if not normalized:
             continue
         mapped = HARDCODED_ALIAS_MAP.get(normalized)
@@ -111,6 +110,13 @@ def _extract_symbol_candidates(query: str) -> list[str]:
             candidates.append(symbol)
         elif symbol in SYMBOL_ALIASES and symbol not in candidates:
             candidates.append(symbol)
+        elif (
+            3 <= len(normalized) <= 6
+            and normalized.isalpha()
+            and raw_token == raw_token.upper()
+            and normalized not in candidates
+        ):
+            candidates.append(normalized)
 
     heuristic = _heuristic_candidate_symbol(query)
     if heuristic and (heuristic in SYMBOL_ALIASES or HARDCODED_ALIAS_MAP.get(heuristic)):
@@ -235,35 +241,37 @@ async def classify_query_with_llm(
     should_close_client = http_client is None
     client = http_client or httpx.AsyncClient(timeout=settings.llm_timeout)
 
-    for model in (settings.query_classifier_model, settings.query_classifier_fallback_model):
-        try:
-            response = await client.post(
-                get_openrouter_chat_url(),
-                headers={
-                    "Authorization": f"Bearer {settings.openrouter_api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": model,
-                    "messages": [
-                        {"role": "system", "content": prompt_config.system_prompt},
-                        {"role": "user", "content": user_prompt},
-                    ],
-                    "temperature": prompt_config.temperature,
-                    "max_tokens": prompt_config.max_tokens,
-                },
-            )
-            response.raise_for_status()
-            text = response.json().get("choices", [{}])[0].get("message", {}).get("content", "")
-            payload = _parse_json_response(text)
-            if payload:
-                return _result_from_payload(payload, fallback)
-        except Exception as exc:
-            logger.warning("Query classifier model failed: model=%s error=%s", model, exc)
+    try:
+        for model in (settings.query_classifier_model, settings.query_classifier_fallback_model):
+            try:
+                response = await client.post(
+                    get_openrouter_chat_url(),
+                    headers={
+                        "Authorization": f"Bearer {settings.openrouter_api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": model,
+                        "messages": [
+                            {"role": "system", "content": prompt_config.system_prompt},
+                            {"role": "user", "content": user_prompt},
+                        ],
+                        "temperature": prompt_config.temperature,
+                        "max_tokens": prompt_config.max_tokens,
+                    },
+                )
+                response.raise_for_status()
+                text = response.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+                payload = _parse_json_response(text)
+                if payload:
+                    return _result_from_payload(payload, fallback)
+            except Exception as exc:
+                logger.warning("Query classifier model failed: model=%s error=%s", model, exc)
 
-    if should_close_client:
-        await client.aclose()
-    return fallback
+        return fallback
+    finally:
+        if should_close_client:
+            await client.aclose()
 
 
 async def classify_query(

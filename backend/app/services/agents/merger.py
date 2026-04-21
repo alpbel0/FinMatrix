@@ -88,11 +88,15 @@ def _dedupe_sources(sources: list[SourceItem]) -> list[SourceItem]:
 def merge_analysis_results(
     *,
     classification: QueryClassificationResult,
-    resolved_symbol: str | None,
+    resolved_symbols: list[str] | None = None,
+    resolved_symbol: str | None = None,
     numerical_result: NumericalAnalysisResult | None,
     text_result: TextAnalysisResult | None,
 ) -> RAGResponse:
     """Merge numerical and text agent outputs into a final response."""
+    if resolved_symbols is None and resolved_symbol is not None:
+        resolved_symbols = [resolved_symbol]
+
     answer_parts: list[str] = []
 
     if numerical_result:
@@ -130,7 +134,7 @@ def merge_analysis_results(
     return RAGResponse(
         answer_text="\n".join(answer_parts),
         sources=sources,
-        stock_symbol=resolved_symbol,
+        stock_symbol=resolved_symbols[0] if resolved_symbols else None,
         document_type=document_type,
         confidence_note=confidence_note,
         insufficient_context=insufficient_context,

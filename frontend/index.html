@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>FinMatrix - News Feed</title>
+  <link rel="stylesheet" href="/css/variables.css">
   <link rel="stylesheet" href="/css/base.css">
   <link rel="stylesheet" href="/css/layout.css">
   <link rel="stylesheet" href="/css/components.css">
@@ -20,8 +21,28 @@
         <a href="/login.html">Login</a>
       </nav>
     </header>
-    <section class="page-header"><h1>News Feed</h1><p class="muted">KAP-driven news with category filters.</p></section>
-    <section class="list" id="news-root"></section>
+    <section class="page-header">
+      <h1 class="page-title">News Feed</h1>
+      <p class="page-subtitle">KAP disclosures and report updates in one feed</p>
+    </section>
+
+    <!-- Category Filters -->
+    <div class="tabs mb-6">
+      <button class="tab active" data-category="all">All</button>
+      <button class="tab" data-category="financial_activity">Financial &amp; Activity</button>
+      <button class="tab" data-category="kap_disclosures">KAP Disclosures</button>
+    </div>
+
+    <!-- Unread Count Badge -->
+    <div class="flex-between mb-6">
+      <span class="text-muted" style="font-size: var(--font-size-sm);">Showing <span id="news-count">0</span> news</span>
+      <span class="badge badge-accent" id="unread-badge" style="display: none;">0 unread</span>
+    </div>
+
+    <!-- News List -->
+    <div class="card">
+      <div id="news-root"></div>
+    </div>
   </div>
   <script type="module" src="/js/news-main.js"></script>
 </body>

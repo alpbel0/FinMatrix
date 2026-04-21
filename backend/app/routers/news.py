@@ -22,7 +22,7 @@ security = HTTPBearer()
 
 @router.get("", response_model=NewsListResponse)
 async def list_news(
-    category: str | None = Query(None, description="Filter by category: financial, activity, kap"),
+    category: str | None = Query(None, description="Filter by category: financial_activity, kap_disclosures"),
     stock_id: int | None = Query(None, description="Filter by stock ID"),
     limit: int = Query(50, ge=1, le=100, description="Max items to return"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
@@ -42,7 +42,7 @@ async def list_news(
         await backfill_news_from_kap_reports(db)
         items = await get_news_feed(db, user.id, category, stock_id, limit, offset)
 
-    unread_count = await get_unread_count(db, user.id)
+    unread_count = await get_unread_count(db, user.id, category, stock_id)
 
     response_items = []
     for item in items:
@@ -54,7 +54,7 @@ async def list_news(
                 stock_id=item.stock_id,
                 symbol=item.stock.symbol if item.stock else None,
                 title=item.title,
-                category=item.category,
+                category=item.category if item.category in {"financial_activity", "kap_disclosures"} else ("financial_activity" if item.filing_type in {"FR", "FAR"} else "kap_disclosures"),
                 filing_type=item.filing_type,
                 excerpt=item.excerpt,
                 source_url=item.source_url,
@@ -99,7 +99,7 @@ async def get_news_item(
         stock_id=item.stock_id,
         symbol=item.stock.symbol if item.stock else None,
         title=item.title,
-        category=item.category,
+        category=item.category if item.category in {"financial_activity", "kap_disclosures"} else ("financial_activity" if item.filing_type in {"FR", "FAR"} else "kap_disclosures"),
         filing_type=item.filing_type,
         excerpt=item.excerpt,
         source_url=item.source_url,
@@ -137,7 +137,7 @@ async def mark_read(
         stock_id=item.stock_id,
         symbol=item.stock.symbol if item.stock else None,
         title=item.title,
-        category=item.category,
+        category=item.category if item.category in {"financial_activity", "kap_disclosures"} else ("financial_activity" if item.filing_type in {"FR", "FAR"} else "kap_disclosures"),
         filing_type=item.filing_type,
         excerpt=item.excerpt,
         source_url=item.source_url,

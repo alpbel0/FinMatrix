@@ -3,13 +3,13 @@
 This module provides functions to determine which stocks should be included
 in various scheduler job universes:
 
-- All active stocks: For price sync
-- BIST 100: For hourly KAP sync and financial sync
-- Watchlist: For daily KAP sync
-- Slow sync: Active - watchlist - BIST100 (for 3-day KAP sync)
+- All active stocks: For price sync and report sync
+- BIST 100: For hourly news sync
+- Watchlist: For daily news sync
+- Non-priority active: Active - watchlist - BIST100 (for slow news sync)
 """
 
-from sqlalchemy import select, distinct
+from sqlalchemy import distinct, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.stock import Stock
@@ -66,35 +66,26 @@ async def get_watchlist_symbols(db: AsyncSession) -> list[str]:
     return [row[0] for row in result.all()]
 
 
-async def get_slow_sync_symbols(db: AsyncSession) -> list[str]:
-    """Get symbols for KAP slow sync job.
+async def get_non_priority_active_symbols(db: AsyncSession) -> list[str]:
+    """Get active symbols that are neither in BIST100 nor watchlists.
 
-    Universe: Active stocks - Watchlist - BIST 100
-
-    This excludes:
-    - BIST 100: Already covered by hourly KAP sync
-    - Watchlist: Already covered by daily KAP sync
-
-    Args:
-        db: AsyncSession instance
-
-    Returns:
-        List of symbols for slow sync (3-day interval).
+    Filtering is done at SQL level with a single ``NOT IN`` exclusion list.
     """
-    # Get all active symbols
-    active = await get_all_active_symbols(db)
+    watchlist_symbols = await get_watchlist_symbols(db)
+    bist100_symbols = await get_bist100_symbols_from_provider()
+    excluded_symbols = list(dict.fromkeys([*watchlist_symbols, *bist100_symbols]))
 
-    # Get watchlist symbols
-    watchlist = await get_watchlist_symbols(db)
+    query = select(Stock.symbol).where(Stock.is_active == True)
+    if excluded_symbols:
+        query = query.where(Stock.symbol.notin_(excluded_symbols))
 
-    # Get BIST 100 symbols
-    bist100 = await get_bist100_symbols_from_provider()
+    result = await db.execute(query.order_by(Stock.symbol))
+    return [row[0] for row in result.all()]
 
-    # Calculate exclusion set
-    excluded = set(watchlist) | set(bist100)
 
-    # Return active symbols not in excluded set
-    return [symbol for symbol in active if symbol not in excluded]
+async def get_slow_sync_symbols(db: AsyncSession) -> list[str]:
+    """Backward-compatible alias for non-priority active symbols."""
+    return await get_non_priority_active_symbols(db)
 
 
 async def get_symbols_by_universe(
@@ -121,7 +112,7 @@ async def get_symbols_by_universe(
     elif universe == "watchlist":
         return await get_watchlist_symbols(db)
     elif universe == "slow":
-        return await get_slow_sync_symbols(db)
+        return await get_non_priority_active_symbols(db)
     else:
         raise ValueError(
             f"Unknown universe: {universe}. "

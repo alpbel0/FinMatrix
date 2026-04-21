@@ -1,7 +1,9 @@
 import { Chart, registerables } from "chart.js";
 import "chartjs-adapter-luxon";
 
-import { getStocks, getStockDetail, getPriceHistory } from "./stockApi.js";
+import { getStocks, getStockDetail, getPriceHistory, getLatestStockSnapshot } from "./stockApi.js";
+import { formatLargeNumber, formatPercent, formatRatio } from "./utils/formatters.js";
+import { getMetricSourceLabel, getMetricToneClass } from "./utils/metricPresentation.js";
 
 Chart.register(...registerables);
 
@@ -110,14 +112,12 @@ function renderSearchResults(stocks) {
   list.innerHTML = stocks.map((stock) => `
     <button
       type="button"
-      class="card"
+      class="btn btn-secondary"
       data-stock-symbol="${stock.symbol}"
-      style="width: 100%; text-align: left; margin-top: 8px;"
+      style="width: 100%; text-align: left; justify-content: flex-start;"
     >
-      <div class="card-header">
-        <span class="badge">${stock.symbol}</span>
-        <span class="muted">${stock.company_name || stock.sector || "No company info"}</span>
-      </div>
+      <span class="badge badge-accent" style="margin-right: var(--space-2);">${stock.symbol}</span>
+      <span class="text-muted">${stock.company_name || stock.sector || "No company info"}</span>
     </button>
   `).join("");
 
@@ -138,13 +138,16 @@ async function loadStockData(symbol) {
   showLoading("#dashboard-root");
 
   try {
-    // Fetch stock detail
-    const stockDetail = await getStockDetail(symbol);
-    renderStockInfo(stockDetail);
+    const [stockDetail, priceData, snapshotData] = await Promise.all([
+      getStockDetail(symbol),
+      getPriceHistory(symbol),
+      getLatestStockSnapshot(symbol),
+    ]);
 
-    // Fetch price history
-    const priceData = await getPriceHistory(symbol);
+    renderStockInfo(stockDetail);
     renderPriceChart(priceData.prices);
+    renderQuickStats(snapshotData);
+    renderSnapshotHighlights(snapshotData);
 
     // Update search input
     const searchInput = document.getElementById("stock-search");
@@ -161,9 +164,63 @@ async function loadStockData(symbol) {
 function renderStockInfo(stock) {
   const badge = document.getElementById("stock-symbol-badge");
   const companyName = document.getElementById("stock-company-name");
+  const sector = document.getElementById("stock-sector");
 
   if (badge) badge.textContent = stock.symbol;
   if (companyName) companyName.textContent = stock.company_name || stock.sector || "No company info";
+  if (sector) sector.textContent = stock.sector || stock.exchange || "";
+}
+
+function renderQuickStats(snapshot) {
+  setMetricValue("stat-pe", formatRatio(snapshot.pe_ratio));
+  setMetricValue("stat-roe", formatPercent(snapshot.roe));
+  setMetricValue("stat-de", formatRatio(snapshot.debt_equity));
+  setMetricValue("stat-npg", formatPercent(snapshot.net_profit_growth));
+
+  const statusEl = document.getElementById("snapshot-status");
+  if (!statusEl) return;
+
+  const parts = [];
+  if (snapshot.snapshot_date) {
+    parts.push(`Güncellendi: ${snapshot.snapshot_date}`);
+  }
+
+  if (snapshot.is_stale) {
+    parts.push(getStaleMessage(snapshot.stale_reason));
+  } else {
+    parts.push("Veri güncel.");
+  }
+
+  if (snapshot.is_partial) {
+    parts.push("Bazı alanlar eksik olabilir.");
+  }
+
+  statusEl.textContent = parts.join(" • ");
+}
+
+function renderSnapshotHighlights(snapshot) {
+  const container = document.getElementById("metrics-placeholder");
+  if (!container) return;
+
+  container.innerHTML = [
+    renderMetricCard("Market Cap", formatLargeNumber(snapshot.market_cap), snapshot.market_cap, snapshot.field_sources?.market_cap),
+    renderMetricCard("P/B Ratio", formatRatio(snapshot.pb_ratio), snapshot.pb_ratio, snapshot.field_sources?.pb_ratio),
+    renderMetricCard("Dividend Yield", formatPercent(snapshot.dividend_yield), snapshot.dividend_yield, snapshot.field_sources?.dividend_yield),
+    renderMetricCard("Free Float", formatPercent(snapshot.free_float), snapshot.free_float, snapshot.field_sources?.free_float),
+  ].join("");
+}
+
+function renderMetricCard(label, value, rawValue, source) {
+  const toneClass = getMetricToneClass(rawValue);
+  const sourceLabel = getMetricSourceLabel(source);
+
+  return `
+    <div class="card metric-card">
+      <div class="metric-value ${toneClass}">${value}</div>
+      <div class="metric-label">${label}</div>
+      <div class="text-muted">${sourceLabel || ""}</div>
+    </div>
+  `;
 }
 
 /**
@@ -204,11 +261,13 @@ function renderPriceChart(prices) {
       datasets: [{
         label: "Close Price (₺)",
         data: closePrices,
-        borderColor: "#1a7f64",
-        backgroundColor: "rgba(26, 127, 100, 0.1)",
+        borderColor: "#3b82f6",
+        backgroundColor: "rgba(59, 130, 246, 0.1)",
         fill: true,
-        tension: 0.1,
+        tension: 0.3,
         pointRadius: 2,
+        pointHoverRadius: 5,
+        borderWidth: 2,
       }]
     },
     options: {
@@ -217,17 +276,35 @@ function renderPriceChart(prices) {
       plugins: {
         legend: {
           display: false
+        },
+        tooltip: {
+          backgroundColor: "#1e293b",
+          titleColor: "#f1f5f9",
+          bodyColor: "#94a3b8",
+          borderColor: "#334155",
+          borderWidth: 1,
+          padding: 12,
+          cornerRadius: 8,
         }
       },
       scales: {
         x: {
+          grid: {
+            color: "rgba(51, 65, 85, 0.5)",
+            drawBorder: false,
+          },
           ticks: {
+            color: "#64748b",
             maxTicksLimit: 10,
           }
         },
         y: {
-          beginAtZero: false,
+          grid: {
+            color: "rgba(51, 65, 85, 0.5)",
+            drawBorder: false,
+          },
           ticks: {
+            color: "#64748b",
             callback: (value) => `₺${value.toFixed(2)}`
           }
         }
@@ -242,6 +319,7 @@ function renderPriceChart(prices) {
  */
 function showLoading(selector) {
   const el = document.querySelector(selector);
+  resetSnapshotState();
   if (!el) return;
 
   // Don't replace entire grid - just update specific elements
@@ -268,6 +346,38 @@ function showError(message) {
   if (chartLoading) {
     chartLoading.style.display = "block";
     chartLoading.textContent = `Error: ${message}`;
+  }
+
+  resetSnapshotState(`Snapshot error: ${message}`);
+}
+
+function resetSnapshotState(statusMessage = "Snapshot loading...") {
+  setMetricValue("stat-pe", "--");
+  setMetricValue("stat-roe", "--");
+  setMetricValue("stat-de", "--");
+  setMetricValue("stat-npg", "--");
+
+  const statusEl = document.getElementById("snapshot-status");
+  if (statusEl) statusEl.textContent = statusMessage;
+}
+
+function setMetricValue(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
+}
+
+function getStaleMessage(staleReason) {
+  switch (staleReason) {
+    case "awaiting_daily_sync":
+      return "Bu veri son kapanış snapshot’ıdır; gece sync bekleniyor.";
+    case "market_closed":
+      return "Piyasa kapalı olabilir; son mevcut snapshot gösteriliyor.";
+    case "sync_delayed":
+      return "Veri güncellenemedi; son başarılı snapshot gösteriliyor.";
+    case "no_snapshot":
+      return "Henüz snapshot verisi bulunmuyor.";
+    default:
+      return "Veri güncellik kontrolü bekleniyor.";
   }
 }
 

@@ -1,6 +1,6 @@
 """News service for news feed and KAP-to-News transformation."""
 
-from sqlalchemy import select, desc, func, distinct
+from sqlalchemy import desc, distinct, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -11,9 +11,10 @@ from app.models.stock import Stock
 
 # Category mapping from filing_type to UI category
 FILING_TYPE_CATEGORY_MAP = {
-    "FR": "financial",  # Financial Reports
-    "FAR": "activity",  # Activity Reports
-    # All others default to "kap"
+    "FR": "financial_activity",
+    "FAR": "financial_activity",
+    "ODA": "kap_disclosures",
+    "DG": "kap_disclosures",
 }
 
 
@@ -25,11 +26,21 @@ def derive_category(filing_type: str | None) -> str:
         filing_type: Raw KAP filing type (e.g., "FR", "FAR")
 
     Returns:
-        UI category string: "financial", "activity", or "kap"
+        UI category string: "financial_activity" or "kap_disclosures"
     """
     if filing_type and filing_type in FILING_TYPE_CATEGORY_MAP:
         return FILING_TYPE_CATEGORY_MAP[filing_type]
-    return "kap"
+    return "kap_disclosures"
+
+
+def _apply_category_filter(query, category: str | None):
+    if not category:
+        return query
+    if category == "financial_activity":
+        return query.where(News.filing_type.in_(["FR", "FAR"]))
+    if category == "kap_disclosures":
+        return query.where(News.filing_type.in_(["ODA", "DG"]))
+    return query.where(News.category == category)
 
 
 async def transform_kap_to_news(db: AsyncSession, kap_report: KapReport) -> News | None:
@@ -95,7 +106,7 @@ async def get_news_feed(
     Args:
         db: AsyncSession instance
         user_id: User ID (unused for now, but kept for future user-specific feeds)
-        category: Filter by category ("financial", "activity", "kap")
+        category: Filter by category ("financial_activity", "kap_disclosures")
         stock_id: Filter by stock ID
         limit: Max items to return
         offset: Pagination offset
@@ -111,8 +122,7 @@ async def get_news_feed(
         .offset(offset)
     )
 
-    if category:
-        query = query.where(News.category == category)
+    query = _apply_category_filter(query, category)
 
     if stock_id:
         query = query.where(News.stock_id == stock_id)
@@ -191,30 +201,35 @@ async def mark_news_read(db: AsyncSession, user_id: int, news_id: int, is_read: 
     return user_news
 
 
-async def get_unread_count(db: AsyncSession, user_id: int) -> int:
-    """
-    Get count of unread news items for a user.
+async def get_unread_count(
+    db: AsyncSession,
+    user_id: int,
+    category: str | None = None,
+    stock_id: int | None = None,
+) -> int:
+    """Get count of unread news items for a user with optional filters."""
+    total_query = select(func.count()).select_from(News)
+    total_query = _apply_category_filter(total_query, category)
+    if stock_id:
+        total_query = total_query.where(News.stock_id == stock_id)
 
-    Count = total news - news with UserNews.is_read=True
-
-    Args:
-        db: AsyncSession instance
-        user_id: User ID
-
-    Returns:
-        Count of unread news items
-    """
-    # Get total news count
-    total_result = await db.execute(select(func.count()).select_from(News))
+    total_result = await db.execute(total_query)
     total_count = total_result.scalar() or 0
 
-    # Count distinct read news items for this user to avoid double-counting.
-    read_result = await db.execute(
-        select(func.count(distinct(UserNews.news_id))).select_from(UserNews).where(
+    read_query = (
+        select(func.count(distinct(UserNews.news_id)))
+        .select_from(UserNews)
+        .join(News, News.id == UserNews.news_id)
+        .where(
             UserNews.user_id == user_id,
             UserNews.is_read.is_(True),
         )
     )
+    read_query = _apply_category_filter(read_query, category)
+    if stock_id:
+        read_query = read_query.where(News.stock_id == stock_id)
+
+    read_result = await db.execute(read_query)
     read_count = read_result.scalar() or 0
 
     return max(0, total_count - read_count)

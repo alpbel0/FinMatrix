@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.services.pipeline.job_policy import (
     get_all_active_symbols,
     get_bist100_symbols_from_provider,
+    get_non_priority_active_symbols,
     get_watchlist_symbols,
     get_slow_sync_symbols,
     get_symbols_by_universe,
@@ -176,6 +177,32 @@ class TestGetSlowSyncSymbols:
             result = await get_slow_sync_symbols(db_session)
 
             # Should only have OTHER (not in BIST100 or watchlist)
+            assert result == ["OTHER"]
+
+    @pytest.mark.asyncio
+    async def test_non_priority_helper_matches_slow_universe(self, db_session: AsyncSession):
+        stock1 = Stock(symbol="THYAO", company_name="Turk Hava", is_active=True)
+        stock2 = Stock(symbol="GARAN", company_name="Garanti", is_active=True)
+        stock3 = Stock(symbol="OTHER", company_name="Other", is_active=True)
+        db_session.add_all([stock1, stock2, stock3])
+        await db_session.commit()
+        await db_session.refresh(stock2)
+
+        from app.models.user import User
+
+        user = User(username="user2", email="user2@test.com", password_hash="hash")
+        db_session.add(user)
+        await db_session.commit()
+        await db_session.refresh(user)
+
+        db_session.add(Watchlist(user_id=user.id, stock_id=stock2.id))
+        await db_session.commit()
+
+        with patch("app.services.pipeline.job_policy.get_bist100_symbols") as mock_bist100:
+            mock_bist100.return_value = ["THYAO"]
+
+            result = await get_non_priority_active_symbols(db_session)
+
             assert result == ["OTHER"]
 
     @pytest.mark.asyncio

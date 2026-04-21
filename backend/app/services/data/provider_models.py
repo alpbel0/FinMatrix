@@ -1,5 +1,6 @@
 """Pydantic models for provider data exchange."""
 
+from collections.abc import Sequence
 from datetime import date, datetime
 from enum import Enum
 from typing import Any
@@ -71,6 +72,12 @@ class StockSnapshot(BaseModel):
     market_cap: float | None = Field(None, description="Market cap in TL")
     pe_ratio: float | None = Field(None, description="Price-to-Earnings ratio")
     pb_ratio: float | None = Field(None, description="Price-to-Book ratio")
+    dividend_yield: float | None = Field(None, description="Dividend yield ratio")
+    trailing_eps: float | None = Field(None, description="Trailing earnings per share")
+    roe: float | None = Field(None, description="Return on equity ratio")
+    roa: float | None = Field(None, description="Return on assets ratio")
+    current_ratio: float | None = Field(None, description="Current ratio")
+    debt_equity: float | None = Field(None, description="Debt-to-equity ratio")
     year_high: float | None = None
     year_low: float | None = None
     fifty_day_avg: float | None = None
@@ -139,7 +146,7 @@ class KapFiling(BaseModel):
     summary: str | None = None  # Disclosure summary text
     attachment_count: int | None = None  # Number of attachments
     is_late: bool | None = None  # Late disclosure flag
-    related_stocks: str | None = None  # Related stock symbols
+    related_stocks: Sequence[str] | str | None = None  # Related stock symbols
 
 
 class CompanyProfile(BaseModel):

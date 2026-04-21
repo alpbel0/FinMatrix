@@ -337,6 +337,35 @@ class TestBatchDownloadPendingPdfs:
         assert result.successful == 0
         assert result.status == "success"
 
+    @pytest.mark.asyncio
+    async def test_prioritizes_fr_far_before_oda(self, db_session):
+        from app.models.kap_report import KapReport
+        from app.models.stock import Stock
+
+        stock = Stock(symbol="THYAO", company_name="Turkish Airlines", sector="Airlines", exchange="BIST", is_active=True)
+        db_session.add(stock)
+        await db_session.flush()
+
+        reports = [
+            KapReport(stock_id=stock.id, title="ODA", filing_type="ODA", pdf_url="https://www.kap.org.tr/tr/api/BildirimPdf/1", source_url="https://www.kap.org.tr/tr/Bildirim/1", sync_status="COMPLETED", pdf_download_status=PdfDownloadStatus.PENDING.value, published_at=datetime(2026, 4, 10, tzinfo=timezone.utc)),
+            KapReport(stock_id=stock.id, title="FR", filing_type="FR", pdf_url="https://www.kap.org.tr/tr/api/BildirimPdf/2", source_url="https://www.kap.org.tr/tr/Bildirim/2", sync_status="COMPLETED", pdf_download_status=PdfDownloadStatus.PENDING.value, published_at=datetime(2026, 4, 9, tzinfo=timezone.utc)),
+            KapReport(stock_id=stock.id, title="FAR", filing_type="FAR", pdf_url="https://www.kap.org.tr/tr/api/BildirimPdf/3", source_url="https://www.kap.org.tr/tr/Bildirim/3", sync_status="COMPLETED", pdf_download_status=PdfDownloadStatus.PENDING.value, published_at=datetime(2026, 4, 8, tzinfo=timezone.utc)),
+        ]
+        db_session.add_all(reports)
+        await db_session.commit()
+
+        processed_titles = []
+
+        async def _fake_download(db, kap_report, storage_base, timeout=None):
+            processed_titles.append(kap_report.title)
+            return PdfDownloadResult(kap_report_id=kap_report.id, symbol="THYAO", disclosure_index="x", success=True, status=PdfDownloadStatus.COMPLETED)
+
+        with patch("app.services.data.pdf_download_service.download_single_pdf", side_effect=_fake_download):
+            result = await batch_download_pending_pdfs(db=db_session, limit=3, filing_types=["FR", "FAR", "ODA"])
+
+        assert result.total_processed == 3
+        assert processed_titles == ["FR", "FAR", "ODA"]
+
 
 class TestBatchRetryFailedDownloads:
     """Tests for batch_retry_failed_downloads function."""
@@ -355,6 +384,34 @@ class TestBatchRetryFailedDownloads:
 
         assert result.total_processed == 0
         assert result.status == "success"
+
+    @pytest.mark.asyncio
+    async def test_retry_prioritizes_fr_far_before_oda(self, db_session):
+        from app.models.kap_report import KapReport
+        from app.models.stock import Stock
+
+        stock = Stock(symbol="THYAO", company_name="Turkish Airlines", sector="Airlines", exchange="BIST", is_active=True)
+        db_session.add(stock)
+        await db_session.flush()
+
+        reports = [
+            KapReport(stock_id=stock.id, title="ODA Retry", filing_type="ODA", pdf_url="https://www.kap.org.tr/tr/api/BildirimPdf/11", source_url="https://www.kap.org.tr/tr/Bildirim/11", sync_status="COMPLETED", pdf_download_status=PdfDownloadStatus.FAILED.value, pdf_download_error="Timeout", published_at=datetime(2026, 4, 10, tzinfo=timezone.utc)),
+            KapReport(stock_id=stock.id, title="FR Retry", filing_type="FR", pdf_url="https://www.kap.org.tr/tr/api/BildirimPdf/12", source_url="https://www.kap.org.tr/tr/Bildirim/12", sync_status="COMPLETED", pdf_download_status=PdfDownloadStatus.FAILED.value, pdf_download_error="Timeout", published_at=datetime(2026, 4, 9, tzinfo=timezone.utc)),
+        ]
+        db_session.add_all(reports)
+        await db_session.commit()
+
+        processed_titles = []
+
+        async def _fake_download(db, kap_report, storage_base, timeout=None):
+            processed_titles.append(kap_report.title)
+            return PdfDownloadResult(kap_report_id=kap_report.id, symbol="THYAO", disclosure_index="x", success=True, status=PdfDownloadStatus.COMPLETED)
+
+        with patch("app.services.data.pdf_download_service.download_single_pdf", side_effect=_fake_download):
+            result = await batch_retry_failed_downloads(db=db_session, limit=2, filing_types=["FR", "FAR", "ODA"])
+
+        assert result.total_processed == 2
+        assert processed_titles == ["FR Retry", "ODA Retry"]
 
 
 class TestBackfillDownloadedPdfs:

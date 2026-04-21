@@ -1,16 +1,25 @@
-"""CrewAI-ready text analyst wrapper around the document RAG text flow."""
+"""CrewAI-ready text analyst built on direct retrieval + response generation."""
 
 import re
-from typing import Any
 from functools import lru_cache
+from typing import Any
 
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.schemas.chat import TextAnalysisResult
+from app.schemas.chat import QueryClassificationResult, QueryUnderstandingResult, TextAnalysisResult
+from app.schemas.enums import DocumentType
 from app.services.agents.crewai_adapter import create_agent_or_spec
-from app.services.chat_rag_service import run_document_pipeline
+from app.services.agents.query_understanding_agent import _heuristic_document_type, _heuristic_intent
+from app.services.agents.response_agent import generate_response
+from app.services.agents.retrieval_agent import run_retrieval
+from app.services.chat_rag_service import (
+    enrich_retrieval_sources,
+    format_memory_context,
+    get_last_messages,
+    get_structured_financial_context,
+)
 
 
 def build_text_analyst_agent() -> Any:
@@ -48,35 +57,82 @@ def _extract_key_points(answer_text: str, max_points: int = 5) -> list[str]:
     return points
 
 
+def _build_understanding(
+    query: str,
+    resolved_symbols: list[str] | None,
+    classification: QueryClassificationResult | None,
+) -> QueryUnderstandingResult:
+    """Build a lightweight understanding object without re-running LLM analysis."""
+    resolved_symbol = resolved_symbols[0] if resolved_symbols else None
+    confidence = classification.confidence if classification is not None else 0.3
+    return QueryUnderstandingResult(
+        normalized_query=query.strip(),
+        candidate_symbol=resolved_symbol,
+        document_type=_heuristic_document_type(query),
+        intent=_heuristic_intent(query),
+        confidence=confidence,
+        suggested_rewrite=None,
+    )
+
+
 async def run_text_analysis(
     *,
     db: AsyncSession,
     user_id: int,
     session_id: int,
     query: str,
+    resolved_symbols: list[str] | None,
+    classification: QueryClassificationResult | None,
     http_client: httpx.AsyncClient | None = None,
 ) -> TextAnalysisResult:
-    """Run the existing RAG text pipeline and package text analyst output.
+    """Run text analysis using pre-resolved symbols and graph classification state."""
+    settings = get_settings()
+    understanding = _build_understanding(query, resolved_symbols, classification)
+    resolved_symbol = resolved_symbols[0] if resolved_symbols else None
 
-    The optional http_client is reserved for future direct tool calls; the current
-    pipeline owns a bounded HTTP client internally.
-    """
-    _ = http_client
-    pipeline_result = await run_document_pipeline(
+    memory_messages = await get_last_messages(
         db=db,
-        user_id=user_id,
         session_id=session_id,
-        query=query,
+        limit=settings.chat_memory_window,
     )
-    response = pipeline_result.response
+    memory_context = format_memory_context(memory_messages)
 
-    return TextAnalysisResult(
-        answer_text=response.answer_text,
-        key_points=_extract_key_points(response.answer_text),
-        sources=response.sources,
-        stock_symbol=response.stock_symbol,
-        document_type=response.document_type,
-        insufficient_context=response.insufficient_context,
-        confidence_note=response.confidence_note,
-        retrieval_confidence=pipeline_result.retrieval.retrieval_confidence,
-    )
+    should_close_client = http_client is None
+    client = http_client or httpx.AsyncClient(timeout=settings.llm_timeout)
+
+    try:
+        retrieval = await run_retrieval(
+            query=query,
+            resolved_symbol=resolved_symbol,
+            document_type=understanding.document_type,
+            understanding=understanding,
+        )
+        retrieval = await enrich_retrieval_sources(db, retrieval)
+        structured_financial_context = await get_structured_financial_context(
+            db=db,
+            symbol=resolved_symbol,
+            intent=understanding.intent,
+        )
+        response = await generate_response(
+            original_query=query,
+            understanding=understanding,
+            retrieval=retrieval,
+            memory_context=memory_context,
+            structured_financial_context=structured_financial_context,
+            http_client=client,
+        )
+        response.stock_symbol = resolved_symbol
+
+        return TextAnalysisResult(
+            answer_text=response.answer_text,
+            key_points=_extract_key_points(response.answer_text),
+            sources=response.sources,
+            stock_symbol=response.stock_symbol,
+            document_type=response.document_type or DocumentType.ANY,
+            insufficient_context=response.insufficient_context,
+            confidence_note=response.confidence_note,
+            retrieval_confidence=retrieval.retrieval_confidence,
+        )
+    finally:
+        if should_close_client:
+            await client.aclose()

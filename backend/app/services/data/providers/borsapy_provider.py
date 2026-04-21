@@ -191,19 +191,53 @@ class BorsapyProvider(BaseMarketDataProvider):
 
             snapshot = StockSnapshot(
                 symbol=symbol.upper(),
-                last_price=fast_info.last_price,
+                last_price=self._safe_attr(fast_info, "last_price"),
                 change=info.get("change"),
                 change_percent=info.get("change_percent"),
-                volume=fast_info.volume,
-                market_cap=fast_info.market_cap,
-                pe_ratio=fast_info.pe_ratio,
-                pb_ratio=fast_info.pb_ratio,
-                year_high=fast_info.year_high,
-                year_low=fast_info.year_low,
-                fifty_day_avg=fast_info.fifty_day_average,
-                two_hundred_day_avg=fast_info.two_hundred_day_average,
-                free_float=fast_info.free_float,
-                foreign_ratio=fast_info.foreign_ratio,
+                volume=self._safe_attr(fast_info, "volume"),
+                market_cap=self._safe_attr(fast_info, "market_cap"),
+                pe_ratio=self._first_non_null(
+                    self._safe_attr(fast_info, "pe_ratio"),
+                    info.get("pe_ratio"),
+                    info.get("trailingPE"),
+                ),
+                pb_ratio=self._first_non_null(
+                    self._safe_attr(fast_info, "pb_ratio"),
+                    info.get("pb_ratio"),
+                    info.get("priceToBook"),
+                ),
+                dividend_yield=self._first_non_null(
+                    info.get("dividend_yield"),
+                    info.get("dividendYield"),
+                ),
+                trailing_eps=self._first_non_null(
+                    info.get("trailing_eps"),
+                    info.get("trailingEps"),
+                    info.get("eps"),
+                ),
+                roe=self._first_non_null(
+                    info.get("roe"),
+                    info.get("returnOnEquity"),
+                ),
+                debt_equity=self._first_non_null(
+                    info.get("debt_equity"),
+                    info.get("debtToEquity"),
+                    info.get("debt_to_equity"),
+                ),
+                year_high=self._safe_attr(fast_info, "year_high"),
+                year_low=self._safe_attr(fast_info, "year_low"),
+                fifty_day_avg=self._safe_attr(fast_info, "fifty_day_average"),
+                two_hundred_day_avg=self._safe_attr(fast_info, "two_hundred_day_average"),
+                free_float=self._first_non_null(
+                    self._safe_attr(fast_info, "free_float"),
+                    info.get("free_float"),
+                    info.get("floatSharesPercent"),
+                ),
+                foreign_ratio=self._first_non_null(
+                    self._safe_attr(fast_info, "foreign_ratio"),
+                    info.get("foreign_ratio"),
+                    info.get("foreignOwnership"),
+                ),
                 source=DataSource.BORSAPY,
             )
 
@@ -646,6 +680,17 @@ class BorsapyProvider(BaseMarketDataProvider):
 
         # Sort descending (most recent first)
         return sorted(periods, reverse=True)
+
+    def _safe_attr(self, obj, attr_name: str):
+        """Return provider attribute when present, otherwise None."""
+        return getattr(obj, attr_name, None)
+
+    def _first_non_null(self, *values):
+        """Return first non-null value from a list of candidates."""
+        for value in values:
+            if value is not None:
+                return value
+        return None
 
     def _parse_period_to_date(self, period: str, period_type: PeriodType) -> date:
         """

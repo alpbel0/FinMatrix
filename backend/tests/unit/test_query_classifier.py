@@ -8,6 +8,7 @@ from app.schemas.enums import QueryType
 from app.services.agents.query_classifier import (
     _extract_symbol_candidates,
     classify_query,
+    classify_query_with_llm,
     classify_query_heuristic,
 )
 
@@ -23,6 +24,10 @@ class TestExtractSymbolCandidates:
     def test_greeting_not_preferred_over_symbol(self):
         symbols = _extract_symbol_candidates("Selam THYAO raporunu yorumla")
         assert symbols[0] == "THYAO"
+
+    def test_extracts_non_alias_uppercase_bist_symbol(self):
+        symbols = _extract_symbol_candidates("PGSUS net kar nedir?")
+        assert symbols == ["PGSUS"]
 
 
 class TestClassifyQueryHeuristic:
@@ -270,3 +275,44 @@ class TestClassifyQuery:
 
         assert result.confidence >= 0.85
         mock_client.post.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_async_client_closes_on_success(self):
+        """Test locally created http client is closed on successful return."""
+
+        class MockResponse:
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return {
+                    "choices": [
+                        {
+                            "message": {
+                                "content": '{"query_type":"text_analysis","symbols":["THYAO"],"needs_text_analysis":true,"needs_numerical_analysis":false,"needs_comparison":false,"needs_chart":false,"confidence":0.9}'
+                            }
+                        }
+                    ]
+                }
+
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(return_value=MockResponse())
+        mock_client.aclose = AsyncMock()
+
+        with patch("app.services.agents.query_classifier.httpx.AsyncClient", return_value=mock_client), patch(
+            "app.services.agents.query_classifier.load_prompt"
+        ) as mock_load:
+            mock_load.return_value = MagicMock(
+                system_prompt="system",
+                temperature=0.1,
+                max_tokens=700,
+                format_user_prompt=lambda **kwargs: kwargs["query"],
+            )
+            result = await classify_query_with_llm(
+                "thy tarafi",
+                classify_query_heuristic("thy tarafi"),
+                http_client=None,
+            )
+
+        assert result.query_type == QueryType.TEXT_ANALYSIS
+        mock_client.aclose.assert_awaited_once()

@@ -16,5 +16,8 @@ class BalanceSheet(Base):
     statement_date: Mapped[date] = mapped_column(Date, nullable=False)
     total_assets: Mapped[float | None] = mapped_column(Float, nullable=True)
     total_equity: Mapped[float | None] = mapped_column(Float, nullable=True)
+    total_liabilities: Mapped[float | None] = mapped_column(Float, nullable=True)
+    current_assets: Mapped[float | None] = mapped_column(Float, nullable=True)
+    current_liabilities: Mapped[float | None] = mapped_column(Float, nullable=True)
     source: Mapped[str] = mapped_column(String(50), nullable=False, default="borsapy")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

@@ -126,6 +126,31 @@ class TestPykapProviderKapFilings:
             for filing in filings:
                 assert filing.filing_type == "FAR"
 
+    def test_kap_filings_with_extended_filing_types(self, provider):
+        """Extended filing types like ODA and DG should be accepted without crashing."""
+        filings = provider.get_kap_filings(
+            "THYAO",
+            start_date=date.today() - timedelta(days=365),
+            filing_types=["FR", "ODA", "DG"],
+        )
+
+        assert isinstance(filings, list)
+        if len(filings) > 0:
+            assert all(filing.symbol == "THYAO" for filing in filings)
+            assert all(filing.filing_type in {"FR", "ODA", "DG"} for filing in filings)
+
+    def test_extended_filing_types_include_oda_or_dg_when_available(self, provider):
+        """When KAP returns ODA/DG records, they should survive provider mapping."""
+        filings = provider.get_kap_filings(
+            "THYAO",
+            start_date=date.today() - timedelta(days=365),
+            filing_types=["ODA", "DG"],
+        )
+
+        assert isinstance(filings, list)
+        if len(filings) > 0:
+            assert all(filing.filing_type in {"ODA", "DG"} for filing in filings)
+
     def test_kap_filings_invalid_symbol(self, provider):
         """Test error handling for invalid symbol."""
         with pytest.raises((ProviderSymbolNotFoundError, ProviderError)):

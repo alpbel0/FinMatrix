@@ -1,9 +1,12 @@
 """Pykap KAP disclosure provider implementation."""
 
+import json
 import sys
 from collections.abc import Sequence
 from datetime import date, datetime, timedelta
 from pathlib import Path
+
+import requests
 
 # Add pykap to path (it's in search/pykap)
 pykap_path = Path(__file__).parent.parent.parent.parent.parent.parent / "search" / "pykap"
@@ -35,12 +38,30 @@ from app.services.data.provider_exceptions import (
 from app.services.utils.logging import logger
 
 
-# KAP disclosure subject UUIDs (from pykap documentation)
-KAP_SUBJECT_FINANCIAL_REPORT = "4028328c594bfdca01594c0af9aa0057"  # Finansal Rapor
-KAP_SUBJECT_OPERATING_REPORT = "4028328d594c04f201594c5155dd0076"  # Faaliyet Raporu
+# KAP disclosure subject UUIDs
+KAP_SUBJECT_FINANCIAL_REPORT = "4028328c594bfdca01594c0af9aa0057"  # Finansal Rapor (FR)
+KAP_SUBJECT_OPERATING_REPORT = "4028328d594c04f201594c5155dd0076"  # Faaliyet Raporu (FAR)
+KAP_SUBJECT_SPECIAL_ANNOUNCEMENT = "4028328c594bfdca01594c03fec6004c"  # Özel Durum Açıklaması (ODA)
 
-# Valid disclosure types from pykap
-VALID_DISCLOSURE_TYPES = {"FAR", "KYUR", "SUR", "KDP", "DEG", "UNV", "SYI"}
+KNOWN_SUBJECT_UUIDS = {
+    KAP_SUBJECT_FINANCIAL_REPORT,
+    KAP_SUBJECT_OPERATING_REPORT,
+    KAP_SUBJECT_SPECIAL_ANNOUNCEMENT,
+}
+
+EXTENDED_DISCLOSURE_TYPES = {
+    "FR",
+    "FAR",
+    "ODA",
+    "DG",
+    "DKB",
+    "KYUR",
+    "SUR",
+    "KDP",
+    "DEG",
+    "UNV",
+    "SYI",
+}
 DISCLOSURE_DATE_FIELDS = (
     "publishDate",
     "disclosureDate",
@@ -48,6 +69,92 @@ DISCLOSURE_DATE_FIELDS = (
     "indexedDate",
     "date",
 )
+
+
+def _normalize_related_stocks(value: Sequence[str] | str | None) -> list[str] | None:
+    """Normalize KAP relatedStocks payloads into a clean symbol list."""
+    if not value:
+        return None
+
+    if isinstance(value, str):
+        candidates = value.split(",")
+    else:
+        candidates = []
+        for item in value:
+            if item is None:
+                continue
+            if isinstance(item, str):
+                candidates.extend(item.split(","))
+            else:
+                candidates.append(str(item))
+
+    normalized: list[str] = []
+    for candidate in candidates:
+        cleaned = candidate.strip().upper()
+        if cleaned and cleaned not in normalized:
+            normalized.append(cleaned)
+
+    return normalized or None
+
+
+class FinMatrixBISTCompany(BISTCompany):
+    """BISTCompany override that removes pykap disclosure-type restrictions."""
+
+    VALID_DISCLOSURE_TYPES = EXTENDED_DISCLOSURE_TYPES
+
+    def get_historical_disclosure_list(
+        self,
+        fromdate: date | None = None,
+        todate: date | None = None,
+        disclosure_type: str = "FR",
+        subject: str | None = KAP_SUBJECT_FINANCIAL_REPORT,
+    ) -> list:
+        """Fetch disclosures for known subjects or all subjects in a class."""
+        if fromdate is None:
+            fromdate = date.today() - timedelta(days=365)
+        if todate is None:
+            todate = date.today()
+
+        subjectno = subject if subject and subject in KNOWN_SUBJECT_UUIDS else None
+
+        data = {
+            "fromDate": str(fromdate),
+            "toDate": str(todate),
+            "disclosureClass": disclosure_type,
+            "subjectList": [subjectno] if subjectno else [],
+            "mkkMemberOidList": [self.company_id],
+            "inactiveMkkMemberOidList": [],
+            "bdkMemberOidList": [],
+            "fromSrc": False,
+            "disclosureIndexList": [],
+        }
+
+        try:
+            response = requests.post(
+                url="https://www.kap.org.tr/tr/api/disclosure/members/byCriteria",
+                json=data,
+                timeout=30,
+            )
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            raise ConnectionError(
+                f"Failed to fetch historical disclosures for {self.ticker}: {exc}"
+            )
+        return json.loads(response.text)
+
+    def get_disclosures(self, disclosure_type: str = "FAR") -> list[dict]:
+        """Fetch disclosures without hard-coded type validation."""
+        try:
+            response = requests.get(
+                f"https://www.kap.org.tr/tr/api/company-detail/disclosures/{disclosure_type}/{self.company_id}",
+                timeout=30,
+            )
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            raise ConnectionError(
+                f"Failed to fetch {disclosure_type} disclosures for {self.ticker}: {exc}"
+            )
+        return [item["disclosureBasic"] for item in response.json()]
 
 
 class PykapProvider(BaseMarketDataProvider):
@@ -87,10 +194,10 @@ class PykapProvider(BaseMarketDataProvider):
             retry_count=self._retry_count,
         )
 
-    def _create_company(self, symbol: str) -> BISTCompany:
-        """Create pykap BISTCompany instance with error handling."""
+    def _create_company(self, symbol: str) -> FinMatrixBISTCompany:
+        """Create FinMatrixBISTCompany instance with error handling."""
         try:
-            company = BISTCompany(symbol.upper())
+            company = FinMatrixBISTCompany(symbol.upper())
             return company
         except ValueError as exc:
             # pykap raises ValueError for invalid ticker
@@ -113,7 +220,7 @@ class PykapProvider(BaseMarketDataProvider):
             symbol: BIST stock symbol (THYAO, GARAN, etc.)
             start_date: Optional filter for filings after this date.
                         Default: last 30 days if not specified.
-            filing_types: Optional filter for specific filing types (FR, FAR, etc.)
+            filing_types: Optional filter for specific filing types (FR, FAR, ODA, DG, DKB, etc.)
 
         Returns:
             List of KapFiling objects with disclosure metadata.
@@ -130,61 +237,57 @@ class PykapProvider(BaseMarketDataProvider):
             company = self._create_company(symbol)
             filings: list[KapFiling] = []
 
-            # Fetch financial reports (FR) via historical disclosure list
-            try:
-                fr_disclosures = company.get_historical_disclosure_list(
-                    fromdate=start_date,
-                    todate=end_date,
-                    disclosure_type="FR",
-                    subject=KAP_SUBJECT_FINANCIAL_REPORT,
-                )
+            requested_types = list(filing_types) if filing_types else ["FR", "FAR"]
 
-                for disc in fr_disclosures:
-                    filing = self._map_disclosure_to_filing(disc, symbol, "FR")
-                    if filing:
-                        filings.append(filing)
-
-            except Exception as exc:
-                logger.warning(f"Failed to fetch FR disclosures for {symbol}: {exc}")
-
-            # Fetch other disclosure types via get_disclosures if requested
-            # or fetch FAR (activity reports) by default as they're important
-            types_to_fetch = filing_types if filing_types else ["FAR"]
-
-            for disc_type in types_to_fetch:
-                if disc_type == "FR":
-                    continue  # Already fetched via historical list
-
-                if disc_type not in VALID_DISCLOSURE_TYPES:
-                    logger.warning(f"Skipping invalid disclosure type: {disc_type}")
-                    continue
-
+            for disc_type in requested_types:
                 try:
-                    disclosures = company.get_disclosures(disc_type)
-
-                    for disc in disclosures:
-                        # Filter by resolved disclosure date. When a filtered
-                        # query cannot resolve any date, skip the record rather
-                        # than leaking stale filings into a recent-only result.
-                        pub_date = self._extract_disclosure_datetime(disc)
-                        if pub_date is None:
-                            logger.debug(
-                                f"Skipping undated {disc_type} disclosure for {symbol}: "
-                                f"{disc.get('disclosureIndex')}"
-                            )
-                            continue
-
-                        if pub_date.date() < start_date:
-                            continue
-
-                        filing = self._map_disclosure_basic_to_filing(
-                            disc,
-                            symbol,
-                            disc_type,
-                            published_at=pub_date,
+                    if disc_type == "FR":
+                        batch = company.get_historical_disclosure_list(
+                            fromdate=start_date,
+                            todate=end_date,
+                            disclosure_type="FR",
+                            subject=KAP_SUBJECT_FINANCIAL_REPORT,
                         )
-                        if filing:
-                            filings.append(filing)
+                        for disc in batch:
+                            filing = self._map_disclosure_to_filing(disc, symbol, "FR")
+                            if filing:
+                                filings.append(filing)
+
+                    elif disc_type in {"ODA", "DG"}:
+                        batch = company.get_historical_disclosure_list(
+                            fromdate=start_date,
+                            todate=end_date,
+                            disclosure_type=disc_type,
+                            subject=None,
+                        )
+                        for disc in batch:
+                            filing = self._map_historical_disclosure_to_filing(disc, symbol, disc_type)
+                            if filing:
+                                filings.append(filing)
+
+                    else:
+                        disclosures = company.get_disclosures(disc_type)
+
+                        for disc in disclosures:
+                            pub_date = self._extract_disclosure_datetime(disc)
+                            if pub_date is None:
+                                logger.debug(
+                                    f"Skipping undated {disc_type} disclosure for {symbol}: "
+                                    f"{disc.get('disclosureIndex')}"
+                                )
+                                continue
+
+                            if pub_date.date() < start_date:
+                                continue
+
+                            filing = self._map_disclosure_basic_to_filing(
+                                disc,
+                                symbol,
+                                disc_type,
+                                published_at=pub_date,
+                            )
+                            if filing:
+                                filings.append(filing)
 
                 except Exception as exc:
                     logger.warning(f"Failed to fetch {disc_type} disclosures for {symbol}: {exc}")
@@ -192,8 +295,17 @@ class PykapProvider(BaseMarketDataProvider):
             # Sort by published_at descending (most recent first)
             filings.sort(key=lambda f: f.published_at or datetime.min, reverse=True)
 
-            logger.info(f"Fetched {len(filings)} KAP filings for {symbol}")
-            return filings
+            seen_indices: set[str] = set()
+            unique_filings: list[KapFiling] = []
+            for filing in filings:
+                disclosure_index = filing.source_url.split("/")[-1]
+                if disclosure_index in seen_indices:
+                    continue
+                seen_indices.add(disclosure_index)
+                unique_filings.append(filing)
+
+            logger.info(f"Fetched {len(unique_filings)} KAP filings for {symbol}")
+            return unique_filings
 
         except ProviderError:
             raise
@@ -258,6 +370,47 @@ class PykapProvider(BaseMarketDataProvider):
 
         except Exception as exc:
             logger.debug(f"Failed to map disclosure for {symbol}: {exc}")
+            return None
+
+    def _map_historical_disclosure_to_filing(
+        self,
+        disclosure: dict,
+        symbol: str,
+        filing_type: str,
+    ) -> KapFiling | None:
+        """Map byCriteria historical disclosure payloads for ODA/DG classes."""
+        try:
+            disclosure_index = disclosure.get("disclosureIndex")
+            if not disclosure_index:
+                return None
+
+            source_url = f"https://www.kap.org.tr/tr/Bildirim/{disclosure_index}"
+            pdf_url = f"https://www.kap.org.tr/tr/api/BildirimPdf/{disclosure_index}"
+            published_at = self._extract_disclosure_datetime(disclosure)
+
+            title = (
+                disclosure.get("summary")
+                or disclosure.get("subject")
+                or disclosure.get("kapTitle")
+                or f"{filing_type} Bildirimi"
+            )
+
+            return KapFiling(
+                symbol=symbol.upper(),
+                title=title,
+                filing_type=filing_type,
+                pdf_url=pdf_url,
+                source_url=source_url,
+                published_at=published_at,
+                provider=DataSource.PYKAP,
+                summary=disclosure.get("summary"),
+                attachment_count=disclosure.get("attachmentCount"),
+                is_late=disclosure.get("isLate"),
+                related_stocks=_normalize_related_stocks(disclosure.get("relatedStocks")),
+            )
+
+        except Exception as exc:
+            logger.debug(f"Failed to map historical disclosure for {symbol}: {exc}")
             return None
 
     def _map_disclosure_basic_to_filing(

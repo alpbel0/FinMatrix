@@ -3,6 +3,10 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   root: ".",
+  test: {
+    environment: "jsdom",
+    include: ["tests/**/*.test.js"],
+  },
   server: {
     port: 5173,
     proxy: {

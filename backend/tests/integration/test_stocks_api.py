@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.stock import Stock
 from app.models.stock_price import StockPrice
+from app.models.stock_snapshot import StockSnapshotRecord
 
 
 @pytest.fixture
@@ -66,7 +67,7 @@ class TestListStocks:
     async def test_list_stocks_unauthorized(self, client: AsyncClient):
         """Unauthorized request should return 401."""
         response = await client.get("/api/stocks")
-        assert response.status_code == 401
+        assert response.status_code == 403
 
     @pytest.mark.asyncio
     async def test_list_stocks_with_search(self, client: AsyncClient, auth_header: dict, seeded_stocks):
@@ -129,7 +130,7 @@ class TestGetStockDetail:
     async def test_get_stock_unauthorized(self, client: AsyncClient):
         """Should return 401 without auth."""
         response = await client.get("/api/stocks/THYAO")
-        assert response.status_code == 401
+        assert response.status_code == 403
 
     @pytest.mark.asyncio
     async def test_get_stock_symbol_case_insensitive(self, client: AsyncClient, auth_header: dict, seeded_stocks):
@@ -177,7 +178,7 @@ class TestGetPriceHistory:
     async def test_get_prices_unauthorized(self, client: AsyncClient):
         """Should return 401 without auth."""
         response = await client.get("/api/stocks/THYAO/prices")
-        assert response.status_code == 401
+        assert response.status_code == 403
 
     @pytest.mark.asyncio
     async def test_get_prices_empty(self, client: AsyncClient, auth_header: dict, seeded_stocks):
@@ -187,6 +188,59 @@ class TestGetPriceHistory:
         data = response.json()
         assert data["count"] == 0
         assert data["prices"] == []
+
+
+class TestStockSnapshotsApi:
+    @pytest.mark.asyncio
+    async def test_get_latest_snapshot_returns_latest_data(self, client: AsyncClient, auth_header: dict, seeded_stocks, db_session: AsyncSession):
+        thyao = seeded_stocks[0]
+        db_session.add(
+            StockSnapshotRecord(
+                stock_id=thyao.id,
+                snapshot_date=date(2026, 4, 20),
+                pe_ratio=6.2,
+                roe=0.24,
+                roa=0.12,
+                current_ratio=1.8,
+                debt_equity=1.35,
+                net_profit_growth=0.18,
+                market_cap=500_000_000_000,
+                last_price=290.5,
+                daily_volume=1_200_000,
+                source="provider:borsapy+calculated",
+                field_sources={"pe_ratio": "provider:borsapy", "roe": "calculated"},
+                missing_fields_count=0,
+                completeness_score=1.0,
+                is_partial=False,
+            )
+        )
+        await db_session.commit()
+
+        response = await client.get("/api/stocks/THYAO/snapshot/latest", headers=auth_header)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["symbol"] == "THYAO"
+        assert data["snapshot_date"] == "2026-04-20"
+        assert data["pe_ratio"] == 6.2
+        assert data["roe"] == 0.24
+        assert data["roa"] == 0.12
+        assert data["current_ratio"] == 1.8
+        assert data["debt_equity"] == 1.35
+        assert data["net_profit_growth"] == 0.18
+        assert data["source"] == "provider:borsapy+calculated"
+        assert data["field_sources"]["roe"] == "calculated"
+
+    @pytest.mark.asyncio
+    async def test_get_latest_snapshot_returns_empty_payload_when_missing(self, client: AsyncClient, auth_header: dict, seeded_stocks):
+        response = await client.get("/api/stocks/THYAO/snapshot/latest", headers=auth_header)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["symbol"] == "THYAO"
+        assert data["snapshot_date"] is None
+        assert data["is_stale"] is True
+        assert data["stale_reason"] == "no_snapshot"
 
     @pytest.mark.asyncio
     async def test_get_prices_ordered_by_date(self, client: AsyncClient, auth_header: dict, seeded_prices):

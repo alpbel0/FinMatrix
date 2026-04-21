@@ -17,7 +17,7 @@ from typing import Any
 
 import httpx
 from pydantic import BaseModel
-from sqlalchemy import select, or_
+from sqlalchemy import case, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
@@ -217,6 +217,14 @@ def _is_retry_eligible(error_message: str) -> bool:
         True if the error is retry-eligible, False otherwise.
     """
     return any(pattern in error_message for pattern in RETRY_ELIGIBLE_PATTERNS)
+
+
+def _pdf_priority_ordering():
+    return case(
+        (KapReport.filing_type.in_(["FR", "FAR"]), 0),
+        (KapReport.filing_type == "ODA", 1),
+        else_=2,
+    )
 
 
 def _index_local_pdfs(storage_base: Path) -> dict[str, tuple[str, int, datetime]]:
@@ -471,7 +479,7 @@ async def batch_download_pending_pdfs(
             KapReport.pdf_download_status == PdfDownloadStatus.PENDING.value,
             KapReport.pdf_url.isnot(None),
         )
-        .order_by(KapReport.published_at.desc())
+        .order_by(_pdf_priority_ordering(), KapReport.published_at.desc())
         .limit(limit)
     )
 
@@ -534,6 +542,7 @@ async def batch_download_pending_pdfs(
 async def batch_retry_failed_downloads(
     db: AsyncSession,
     limit: int = 50,
+    filing_types: list[str] | None = None,
 ) -> PdfBatchDownloadResult:
     """Retry failed PDF downloads that are eligible for retry.
 
@@ -554,6 +563,7 @@ async def batch_retry_failed_downloads(
     Args:
         db: AsyncSession for database operations.
         limit: Maximum number of PDFs to retry.
+        filing_types: Optional filing-type filter.
 
     Returns:
         PdfBatchDownloadResult with retry outcome.
@@ -573,9 +583,12 @@ async def batch_retry_failed_downloads(
             KapReport.pdf_download_status == PdfDownloadStatus.FAILED.value,
             or_(*retry_conditions),
         )
-        .order_by(KapReport.published_at.desc())
+        .order_by(_pdf_priority_ordering(), KapReport.published_at.desc())
         .limit(limit)
     )
+
+    if filing_types:
+        query = query.where(KapReport.filing_type.in_(filing_types))
 
     result = await db.execute(query)
     kap_reports = result.scalars().all()

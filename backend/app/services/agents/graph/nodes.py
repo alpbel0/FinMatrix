@@ -84,7 +84,7 @@ async def resolve_symbol_node(state: "AgentState") -> dict:
     """Resolve the first candidate symbol from the classification result.
 
     Skips when ``classification`` is absent or its ``symbols`` list is empty.
-    Sets ``resolved_symbol`` to None on not-found; sets ``fallback_reason``
+    Sets ``resolved_symbols`` to None on not-found; sets ``fallback_reason``
     when an unexpected error occurs.
     """
     node_name = "resolve_symbol"
@@ -94,28 +94,37 @@ async def resolve_symbol_node(state: "AgentState") -> dict:
     if not classification or not classification.symbols:
         return {
             "resolved_symbol": None,
+            "resolved_symbols": None,
             "node_history": [_make_entry(node_name, start, "skipped", "no_symbols")],
         }
 
     try:
         async with AsyncSessionLocal() as db:
-            symbol = await resolve_symbol(db, classification.symbols[0])
+            resolved_symbols: list[str] = []
+            for candidate_symbol in classification.symbols:
+                symbol = await resolve_symbol(db, candidate_symbol)
+                if symbol is not None and symbol not in resolved_symbols:
+                    resolved_symbols.append(symbol)
 
-        if symbol is None:
+        if not resolved_symbols:
             return {
                 "resolved_symbol": None,
+                "resolved_symbols": None,
+                "fallback_reason": "symbol_not_found",
                 "node_history": [
                     _make_entry(node_name, start, "skipped", "symbol_not_found")
                 ],
             }
 
         return {
-            "resolved_symbol": symbol,
+            "resolved_symbol": resolved_symbols[0],
+            "resolved_symbols": resolved_symbols,
             "node_history": [_make_entry(node_name, start, "ok")],
         }
     except Exception:
         return {
             "resolved_symbol": None,
+            "resolved_symbols": None,
             "fallback_reason": "symbol_resolve_error",
             "node_history": [
                 _make_entry(node_name, start, "error", "symbol_resolve_error")
@@ -126,17 +135,20 @@ async def resolve_symbol_node(state: "AgentState") -> dict:
 async def numerical_analysis_node(state: "AgentState") -> dict:
     """Run deterministic financial metrics analysis.
 
-    Skips when ``resolved_symbol`` is absent. Passes the already-resolved
-    symbol to bypass the internal resolve_symbol call inside
+    Skips when ``resolved_symbols`` is absent. Passes the already-resolved
+    symbols to bypass the internal resolve_symbol call inside
     run_numerical_analysis.
     """
     node_name = "numerical_analysis"
     start = _start_trace()
 
-    resolved_symbol = state.get("resolved_symbol")
-    if not resolved_symbol:
+    resolved_symbols = state.get("resolved_symbols") or (
+        [state.get("resolved_symbol")] if state.get("resolved_symbol") else None
+    )
+    if not resolved_symbols:
         return {
             "numerical_result": None,
+            "fallback_reason": state.get("fallback_reason") or "symbol_not_found",
             "node_history": [
                 _make_entry(node_name, start, "skipped", "no_symbol")
             ],
@@ -150,7 +162,7 @@ async def numerical_analysis_node(state: "AgentState") -> dict:
             result = await run_numerical_analysis(
                 db,
                 state["query"],
-                symbols=[resolved_symbol],
+                symbols=resolved_symbols,
                 needs_chart=needs_chart,
                 http_client=state.get("http_client"),
             )
@@ -161,6 +173,7 @@ async def numerical_analysis_node(state: "AgentState") -> dict:
     except Exception:
         return {
             "numerical_result": None,
+            "fallback_reason": "numerical_failed",
             "node_history": [
                 _make_entry(node_name, start, "error", "numerical_failed")
             ],
@@ -186,6 +199,10 @@ async def text_analysis_node(state: "AgentState") -> dict:
                 user_id=state["user_id"],
                 session_id=state["session_id"],
                 query=state["query"],
+                resolved_symbols=state.get("resolved_symbols") or (
+                    [state.get("resolved_symbol")] if state.get("resolved_symbol") else None
+                ),
+                classification=state.get("classification"),
                 http_client=state.get("http_client"),
             )
         return {
@@ -195,6 +212,7 @@ async def text_analysis_node(state: "AgentState") -> dict:
     except Exception:
         return {
             "text_result": None,
+            "fallback_reason": "text_analysis_failed",
             "node_history": [
                 _make_entry(node_name, start, "error", "text_analysis_failed")
             ],
@@ -212,6 +230,7 @@ async def merge_node(state: "AgentState") -> dict:
     try:
         result = merge_analysis_results(
             classification=state.get("classification"),
+            resolved_symbols=state.get("resolved_symbols"),
             resolved_symbol=state.get("resolved_symbol"),
             numerical_result=state.get("numerical_result"),
             text_result=state.get("text_result"),
@@ -223,6 +242,7 @@ async def merge_node(state: "AgentState") -> dict:
     except Exception:
         return {
             "response": None,
+            "fallback_reason": "merge_failed",
             "node_history": [_make_entry(node_name, start, "error", "merge_failed")],
         }
 
@@ -256,6 +276,7 @@ async def fallback_node(state: "AgentState") -> dict:
     except Exception:
         return {
             "response": None,
+            "fallback_reason": "fallback_failed",
             "node_history": [
                 _make_entry(node_name, start, "error", "fallback_failed")
             ],

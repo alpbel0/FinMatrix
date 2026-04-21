@@ -12,20 +12,25 @@ from app.services.data.provider_models import KapFiling
 from app.services.utils.logging import logger
 
 
-def normalize_related_stocks(related_stocks: str | None) -> list[str] | None:
+def normalize_related_stocks(related_stocks: Sequence[str] | str | None) -> list[str] | None:
     """
     Normalize related_stocks string to JSON array for PostgreSQL JSONB storage.
 
     Args:
-        related_stocks: Comma-separated string of stock symbols (e.g., "THYAO,GARAN,ASELS")
+        related_stocks: Comma-separated string or list of stock symbols.
 
     Returns:
         List of normalized symbols (e.g., ["THYAO", "GARAN", "ASELS"]) or None
     """
     if not related_stocks:
         return None
-    # Virgülle ayrılmış string -> list
-    stocks = [s.strip().upper() for s in related_stocks.split(',')]
+
+    if isinstance(related_stocks, str):
+        raw_stocks = related_stocks.split(',')
+    else:
+        raw_stocks = [str(stock) for stock in related_stocks]
+
+    stocks = [s.strip().upper() for s in raw_stocks]
     # Boşları at, duplicate'leri temizle
     stocks = [s for s in stocks if s]
     stocks = list(dict.fromkeys(stocks))  # Preserve order, remove duplicates

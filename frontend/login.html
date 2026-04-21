@@ -4,20 +4,35 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>FinMatrix - Login</title>
+  <link rel="stylesheet" href="/css/variables.css">
   <link rel="stylesheet" href="/css/base.css">
   <link rel="stylesheet" href="/css/layout.css">
   <link rel="stylesheet" href="/css/components.css">
 </head>
 <body>
-  <div class="app-shell">
-    <section class="page-header"><h1>Login</h1><p class="muted">Sign in to your account.</p></section>
-    <form class="card form-stack" id="login-form">
-      <input class="input" type="email" id="email" placeholder="Email" required>
-      <input class="input" type="password" id="password" placeholder="Password" required minlength="6">
-      <button class="button" type="submit">Login</button>
-      <p id="error-message" class="error" style="display: none; color: #dc3545;"></p>
-      <a class="muted" href="/register.html">Create an account</a>
-    </form>
+  <div class="auth-container">
+    <div class="auth-card card">
+      <div class="auth-header">
+        <div class="auth-logo">FinMatrix</div>
+        <p class="auth-subtitle">Sign in to your account</p>
+      </div>
+      <form class="form-stack" id="login-form">
+        <div class="input-group">
+          <label class="input-label" for="email">Email</label>
+          <input class="input" type="email" id="email" placeholder="you@example.com" required>
+        </div>
+        <div class="input-group">
+          <label class="input-label" for="password">Password</label>
+          <input class="input" type="password" id="password" placeholder="Your password" required minlength="6">
+        </div>
+        <button class="btn btn-primary" type="submit" style="width: 100%; margin-top: var(--space-2);">Sign In</button>
+        <p id="error-message" class="text-danger" style="display: none; font-size: var(--font-size-sm);"></p>
+      </form>
+      <div class="divider"></div>
+      <p class="text-center" style="font-size: var(--font-size-sm); color: var(--text-secondary);">
+        Don't have an account? <a href="/register.html" class="text-accent">Create one</a>
+      </p>
+    </div>
   </div>
   <script type="module" src="/js/login-main.js"></script>
 </body>

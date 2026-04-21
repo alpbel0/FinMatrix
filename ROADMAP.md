@@ -1140,9 +1140,19 @@ Bu hafta itibariyla agent orchestration katmani CrewAI ile kurulacak. Ancak tum 
 - [x] Orchestrator artik if/else yerine LangGraph graph ile yonlendiriyor
 - [x] Her sorgu turu dogru node zincirinden geciyor
 - [x] `node_history` her sorgu icin doluyor ve trace'e yaziliyor
-- [ ] `fallback_reason` debug icin state'te mevcut
-- [ ] Mevcut tum testler kiriilmadan geciyor
-- [ ] Yeni graph testleri (routing, fallback, trace) gecmis durumda
+- [x] `fallback_reason` debug icin state'te mevcut
+- [x] Mevcut tum testler kiriilmadan geciyor
+- [x] Yeni graph testleri (routing, fallback, trace) gecmis durumda
+
+---
+
+### Phase 3: Dashboard & Intelligence Entegrasyonu (Tamamlandı ✅)
+- [x] **Task 3.1: Dashboard "Quick Stats" Entegrasyonu**
+  - [x] `stock_snapshots` tarihsel rasyo tablosunun oluşturulması
+  - [x] `Borsapy` ve `pykap` (fallback) ile günlük veri hattı (Task 4-7)
+  - [x] Tarihsel "time-series" snapshot altyapısının kurulması
+  - [x] Dashboard'daki boş istatistik kartlarının canlı veriye bağlanması
+  - [x] Veri güncelliği (Freshness/Stale) ve kalite kontrolü mekanizması
 
 ---
 

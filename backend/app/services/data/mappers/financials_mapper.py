@@ -39,6 +39,9 @@ async def upsert_balance_sheet(
         statement_date=stmt.statement_date,
         total_assets=stmt.total_assets,
         total_equity=stmt.total_equity,
+        total_liabilities=stmt.total_liabilities,
+        current_assets=stmt.current_assets,
+        current_liabilities=stmt.current_liabilities,
         source=stmt.source.value,
     )
 
@@ -47,6 +50,9 @@ async def upsert_balance_sheet(
         set_={
             "total_assets": stmt_obj.excluded.total_assets,
             "total_equity": stmt_obj.excluded.total_equity,
+            "total_liabilities": stmt_obj.excluded.total_liabilities,
+            "current_assets": stmt_obj.excluded.current_assets,
+            "current_liabilities": stmt_obj.excluded.current_liabilities,
         }
     ).returning(BalanceSheet)
 

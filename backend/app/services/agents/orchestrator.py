@@ -99,11 +99,13 @@ async def run_orchestrated_pipeline(
     http_client: httpx.AsyncClient | None = None,
 ) -> ChatPipelineResult:
     """Run the LangGraph orchestration pipeline for a chat query."""
+    _ = db  # Intentionally unused — each graph node manages its own DB session.
     initial_state: AgentState = {
         "query": query,
         "user_id": user_id,
         "session_id": session_id,
         "http_client": http_client,
+        "resolved_symbols": None,
         "node_history": [],
     }
 
@@ -111,7 +113,10 @@ async def run_orchestrated_pipeline(
     final_state = await graph.ainvoke(initial_state)
 
     response = final_state.get("response")
-    resolved_symbol = final_state.get("resolved_symbol")
+    resolved_symbols = final_state.get("resolved_symbols") or (
+        [final_state.get("resolved_symbol")] if final_state.get("resolved_symbol") else None
+    )
+    resolved_symbol = resolved_symbols[0] if resolved_symbols else None
     node_history = final_state.get("node_history", [])
     fallback_reason = final_state.get("fallback_reason")
 

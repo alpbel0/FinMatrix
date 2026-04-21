@@ -83,14 +83,18 @@ function formatDateTime(dt) {
 }
 
 function renderMessage(message) {
+  const isUser = message.role === "user";
   const card = document.createElement("div");
-  card.className = `card message-${message.role}`;
+  card.className = `message ${isUser ? "user" : ""}`;
   card.innerHTML = `
-    <div class="message-header">
-      <strong>${message.role === "user" ? "Siz" : "Asistan"}</strong>
-      <span class="muted">${formatDateTime(message.created_at)}</span>
+    <div class="message-avatar">${isUser ? "S" : "AI"}</div>
+    <div class="message-content">
+      <div class="flex-between mb-2" style="font-size: var(--font-size-xs);">
+        <strong class="text-${isUser ? "accent" : "primary"}">${isUser ? "Siz" : "Asistan"}</strong>
+        <span class="text-muted">${formatDateTime(message.created_at)}</span>
+      </div>
+      <p class="message-text">${escapeHtml(message.content)}</p>
     </div>
-    <div class="message-content">${escapeHtml(message.content)}</div>
   `;
 
   // Render comparison table if present (assistant messages only)
@@ -151,16 +155,18 @@ function renderChart(chartPayload, container) {
   const ctx = canvas.getContext("2d");
 
   const datasets = chartPayload.series.map((series, index) => {
-    const colors = ["#1a7f64", "#4a90d9", "#d97b4a", "#9b59b6", "#27ae60"];
+    const colors = ["#3b82f6", "#22c55e", "#f59e0b", "#8b5cf6", "#ef4444"];
     const color = colors[index % colors.length];
     return {
       label: series.name,
       data: series.data.map((d) => ({ x: d.date, y: d.value })),
       borderColor: color,
-      backgroundColor: `${color}1a`, // 10% opacity
+      backgroundColor: `${color}1a`,
       fill: true,
-      tension: 0.1,
+      tension: 0.3,
       pointRadius: 2,
+      pointHoverRadius: 5,
+      borderWidth: 2,
     };
   });
 
@@ -171,14 +177,31 @@ function renderChart(chartPayload, container) {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { display: true, position: "top" },
-        title: { display: true, text: chartPayload.title, font: { size: 14 } },
+        legend: {
+          display: true,
+          position: "top",
+          labels: { color: "#94a3b8", boxWidth: 12, padding: 16 }
+        },
+        title: {
+          display: true,
+          text: chartPayload.title,
+          font: { size: 14, color: "#f1f5f9" }
+        },
       },
       scales: {
-        x: { type: "time", time: { unit: "month" }, ticks: { maxTicksLimit: 8 } },
-        y: { beginAtZero: false, ticks: { callback: (v) => v.toLocaleString() } },
-      },
-    },
+        x: {
+          type: "time",
+          time: { unit: "month" },
+          grid: { color: "rgba(51, 65, 85, 0.5)", drawBorder: false },
+          ticks: { color: "#64748b", maxTicksLimit: 8 }
+        },
+        y: {
+          grid: { color: "rgba(51, 65, 85, 0.5)", drawBorder: false },
+          ticks: { color: "#64748b", callback: (v) => v.toLocaleString() },
+          beginAtZero: false
+        }
+      }
+    }
   });
 
   chatCharts.push(chart);
