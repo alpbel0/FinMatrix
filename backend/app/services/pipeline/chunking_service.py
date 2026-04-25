@@ -27,7 +27,12 @@ from app.models.document_chunk import DocumentChunk
 from app.models.kap_report import KapReport
 from app.models.stock import Stock
 from app.services.pipeline.content_ingestion_service import persist_parsed_document
-from app.services.pipeline.document_parser import ParsedDocument, ParsedElement, get_structured_pdf_parser
+from app.services.pipeline.document_parser import (
+    ParsedDocument,
+    ParsedElement,
+    PdfPlumberFallbackParser,
+    get_structured_pdf_parser,
+)
 from app.services.utils.logging import logger
 
 
@@ -512,28 +517,10 @@ async def chunk_single_pdf(
         parser = get_structured_pdf_parser()
         try:
             parsed_document = parser.parse(pdf_path)
-        except FileNotFoundError:
-            # Preserve compatibility with legacy tests and fallback extractors.
-            legacy_pages = _extract_text_from_pdf(pdf_path)
-            parsed_document = ParsedDocument(
-                parser_version="legacy_pdfplumber_v0",
-                markdown="\n\n".join(legacy_pages),
-                elements=[
-                    ParsedElement(
-                        element_type="paragraph",
-                        text=page,
-                        markdown=page,
-                        page_start=index + 1,
-                        page_end=index + 1,
-                        section_path="Legacy PDF",
-                        token_estimate=max(1, len(page) // CHARS_PER_TOKEN),
-                        is_atomic=False,
-                    )
-                    for index, page in enumerate(legacy_pages)
-                    if page
-                ],
-                warnings=[],
-            )
+        except (FileNotFoundError, RuntimeError, Exception) as exc:
+            logger.warning(f"Primary parser failed ({exc}), falling back to pdfplumber fallback parser")
+            fallback_parser = PdfPlumberFallbackParser()
+            parsed_document = fallback_parser.parse(pdf_path)
 
         if not parsed_document.elements:
             # Empty PDF - mark as COMPLETED with error

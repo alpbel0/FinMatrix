@@ -502,6 +502,7 @@ class TestChunkSinglePdf:
         from app.services.pipeline.chunking_service import chunk_single_pdf
         from app.models.kap_report import KapReport
         from pathlib import Path as RealPath
+        from app.services.pipeline.document_parser import ParsedDocument
 
         kap_report = MagicMock(spec=KapReport)
         kap_report.id = 1
@@ -515,8 +516,14 @@ class TestChunkSinglePdf:
         db = AsyncMock()
         db.commit = AsyncMock()
 
-        with patch("app.services.pipeline.chunking_service._extract_text_from_pdf") as mock_extract:
-            mock_extract.return_value = []  # Empty pages
+        with patch("app.services.pipeline.chunking_service.get_structured_pdf_parser") as mock_get_parser:
+            mock_parser = MagicMock()
+            mock_parser.parse.return_value = ParsedDocument(
+                parser_version="test",
+                markdown="",
+                elements=[],
+            )
+            mock_get_parser.return_value = mock_parser
 
             result = await chunk_single_pdf(
                 db=db,

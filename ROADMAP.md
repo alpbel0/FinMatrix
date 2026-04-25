@@ -681,22 +681,29 @@ FinMatrix/
 ### Task 5.2: PDF Yapisal Ayristirma ve Chunking (Docling)
 
 **Tahmini Sure:** 6 saat
-**Durum:** Planned
+**Durum:** ✅ Completed
 
-- [ ] `pipeline/document_parser.py` olustur
-  - [ ] Docling (DocumentConverter) ana parser olarak entegre et
-  - [ ] pdfplumber fallback: Docling None donersa devreye girer
-  - [ ] Her blok icin section_path, block_type, raw_text cikar
-  - [ ] Tablo bloklarini ayir: PostgreSQL `extracted_tables` + Markdown olarak ChromaDB icin hazirla
-  - [ ] `document_contents` tablosuna yaz (yeni RAG-ready tablo)
-  - [ ] `chunk_report_links` tablosunu doldur (parent-child iliskisi)
-- [ ] DB schema guncelleme (Alembic migration):
-  - [ ] `document_contents`: id, kap_report_id, section_path, block_type, raw_text, processed_text, content_hash, parent_content_id, embedding_status, created_at
-  - [ ] `extracted_tables`: id, kap_report_id, section_path, table_markdown, table_json, page_number, created_at
-  - [ ] `chunk_report_links`: id, parent_id, child_id, link_type
-  - [ ] `processing_cache`: id, section_path, decision (KEEP/DISCARD), suggested_label, decided_by, decided_at
-- [ ] Unit tests: test_document_parser.py
-- [ ] Integration tests: Real PDF parse ile THYAO/GARAN ornekleri
+- [x] `pipeline/document_parser.py` olustur
+  - [x] Docling DOM Parser (`DoclingDomParser`) ana parser olarak entegre edildi
+  - [x] `PdfPlumberFallbackParser` fallback: Docling hata verirse devreye girer
+  - [x] Her blok icin `section_path`, `element_type`, `text`, `markdown`, `page_start/end` cikar
+  - [x] Tablo bloklarini ayir: PostgreSQL `extracted_tables` + Markdown olarak ChromaDB icin hazirla
+  - [x] `document_contents` tablosuna yaz (RAG-ready canonical content)
+  - [x] Parent-Child iliskisi `document_contents.parent_content_id` (ON DELETE CASCADE) ile saglandi
+- [x] DB schema guncelleme (Alembic migration `a8b9c0d1e2f3`):
+  - [x] `document_contents`: `parent_content_id`, `is_synthetic_section`, `processed_text` eklendi
+  - [x] `extracted_tables`: id, kap_report_id, section_path, table_markdown, table_json, page_number, created_at
+  - [x] `processing_cache`: id, section_path, decision (KEEP/DISCARD), suggested_label, decided_by, decided_at
+  - [x] `chunk_report_links` onceki migration (`7b3c4d5e6f70`) ile zaten mevcut
+- [x] 1024 token guvenlik duvari + 50 overlap; semantic chunking 500 token hedef
+- [x] Turkce cumle ayristirici (`sentence_splitter.py`) eklendi (kisaltma beyaz listesi + cumle siniri)
+- [x] `content_ingestion_service.py` yeniden yazildi: tablo persist, parent-child split, `SKIPPED` parent embedding_status
+- [x] `embedding_service.py` guncellendi: context prepend (`[BAGLAM: symbol - year - section_path]`) + metadata
+- [x] Unit tests: `test_document_parser.py` (42 test), `test_sentence_splitter.py`, `test_content_ingestion_service.py`
+- [x] Integration tests: `test_real_pdf_parse.py` (7 test) — gercek PDF + gercek PostgreSQL + golden regression
+- [x] Gercek KAP fixture: `tests/fixtures/sample_kap_thyao_2025_fr.pdf`
+- [x] Golden file: `tests/fixtures/golden/sample_kap_thyao_2025_fr.json`
+- [x] Test DB setup duzeltildi: `alembic/env.py` test fixture URL'sini ezmemesi icin guncellendi
 
 ### Task 5.3: Triage Sistemi (Blacklist/Whitelist/Greylist)
 

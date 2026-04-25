@@ -23,6 +23,34 @@ from app.services.utils.logging import logger
 OPENROUTER_EMBEDDING_URL = "https://openrouter.ai/api/v1/embeddings"
 EMBEDDING_MODEL = "openai/text-embedding-3-small"
 
+
+# ---------------------------------------------------------------------------
+# Context helpers
+# ---------------------------------------------------------------------------
+
+
+def _sanitize_section_path(text: str) -> str:
+    """Clean section path for use in context prepend and metadata."""
+    if not text:
+        return ""
+    cleaned = text.replace("\n", " ").replace("\t", " ")
+    cleaned = __import__("re").sub(r"\s+", " ", cleaned)
+    return cleaned.strip()[:500]
+
+
+def _build_embedding_text(
+    content_text: str,
+    stock_symbol: str,
+    section_path: str | None,
+    published_year: int | None,
+) -> str:
+    """Prepend semantic context tag before the actual chunk text."""
+    symbol = stock_symbol or "N/A"
+    year = str(published_year) if published_year else "N/A"
+    section = _sanitize_section_path(section_path or "")
+    context_tag = f"[BAĞLAM: {symbol} - {year} - {section}]"
+    return f"{context_tag}\n{content_text}"
+
 EMBEDDING_RETRY_PATTERNS = [
     "Timeout",
     "rate limit",
@@ -156,8 +184,10 @@ async def _build_content_metadata(
         "report_count": len(set(report_ids)),
         "content_type": content.content_type,
         "content_origin": content.content_origin,
-        "section_path": content.section_path or "",
+        "section_path": _sanitize_section_path(content.section_path or ""),
         "evidence_mode": _derive_evidence_mode(published_years),
+        "parent_content_id": content.parent_content_id,
+        "is_synthetic_section": content.is_synthetic_section,
     }
 
 
@@ -194,7 +224,27 @@ async def embed_contents_batch(
     async with httpx.AsyncClient() as client:
         for index in range(0, len(contents), settings.embedding_batch_size):
             batch = contents[index:index + settings.embedding_batch_size]
-            texts = [content.content_markdown or content.content_text for content in batch]
+
+            # Prepare metadata, ids, and embedding texts in one pass
+            texts: list[str] = []
+            ids: list[str] = []
+            metadatas: list[dict[str, Any]] = []
+
+            for content in batch:
+                metadata = await _build_content_metadata(db, content, stock_symbol_map)
+                metadatas.append(metadata)
+                ids.append(content.content_hash or f"content_{content.id}")
+
+                year_str = metadata.get("published_years", "")
+                published_year = int(year_str.split(",")[-1]) if year_str else None
+
+                embedding_text = _build_embedding_text(
+                    content_text=content.content_markdown or content.content_text,
+                    stock_symbol=metadata["stock_symbol"],
+                    section_path=metadata["section_path"],
+                    published_year=published_year,
+                )
+                texts.append(embedding_text)
 
             try:
                 embeddings = await _get_embeddings_from_openrouter(
@@ -217,18 +267,8 @@ async def embed_contents_batch(
                 await db.commit()
                 continue
 
-            ids: list[str] = []
-            metadatas: list[dict[str, Any]] = []
-            documents: list[str] = []
-
-            for content in batch:
-                doc_id = content.content_hash or f"content_{content.id}"
-                ids.append(doc_id)
-                metadatas.append(await _build_content_metadata(db, content, stock_symbol_map))
-                documents.append(content.content_markdown or content.content_text)
-
             try:
-                collection.upsert(ids=ids, embeddings=embeddings, metadatas=metadatas, documents=documents)
+                collection.upsert(ids=ids, embeddings=embeddings, metadatas=metadatas, documents=texts)
             except Exception as exc:
                 error_message = f"ChromaDB error: {exc}"
                 for content in batch:

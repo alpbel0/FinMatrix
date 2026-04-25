@@ -16,7 +16,11 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 settings = get_settings()
-async_url = settings.database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+existing_url = config.get_main_option("sqlalchemy.url")
+if not existing_url or existing_url.startswith("driver://"):
+    async_url = settings.database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+else:
+    async_url = existing_url.replace("postgresql://", "postgresql+asyncpg://", 1)
 config.set_main_option("sqlalchemy.url", async_url)
 target_metadata = Base.metadata
 

@@ -6,10 +6,12 @@ from app.models.chunk_report_link import ChunkReportLink
 from app.models.document_content import DocumentContent
 from app.models.document_chunk import DocumentChunk
 from app.models.eval_log import EvalLog
+from app.models.extracted_table import ExtractedTable
 from app.models.income_statement import IncomeStatement
 from app.models.kap_report import KapReport
 from app.models.news import News, UserNews
 from app.models.pipeline_log import PipelineLog
+from app.models.processing_cache import ProcessingCache
 from app.models.scheduler_setting import SchedulerSetting
 from app.models.stock import Stock
 from app.models.stock_price import StockPrice
