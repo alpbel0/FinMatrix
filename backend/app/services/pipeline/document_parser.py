@@ -33,6 +33,7 @@ class ParsedElement:
     token_estimate: int = 0
     is_atomic: bool = False
     is_summary_prefix: bool = False
+    is_synthetic: bool = False
     content_origin: str = "pdf_docling"
     table_data: dict[str, Any] | None = None  # Only for tables
 

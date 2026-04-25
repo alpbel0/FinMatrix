@@ -76,12 +76,10 @@ async def test_engine():
 
     yield engine
 
-    # Drop all tables via Alembic downgrade to base
-    try:
-        await asyncio.to_thread(command.downgrade, alembic_cfg, "base")
-        print("[conftest] Alembic downgrade completed")
-    except Exception as exc:
-        print(f"[conftest] Alembic downgrade FAILED: {exc}")
+    # NOTE: Downgrade disabled to preserve test data across runs
+    # If you need a clean slate, run: alembic downgrade base manually
+    # or delete and recreate finmatrix_test database
+    print("[conftest] Engine teardown skipped — test data preserved")
     await engine.dispose()
 
 

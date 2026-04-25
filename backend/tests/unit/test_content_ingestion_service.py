@@ -180,9 +180,19 @@ class TestPersistParsedDocument:
             ],
         )
 
-        with patch(
-            "app.services.pipeline.content_ingestion_service._write_markdown_snapshot",
-            return_value="snap.md",
+        async def mock_filter_elements(elements, db, stock_symbol="", report_year=0):
+            from app.services.pipeline.triage_service import TriageResult, TriageDecision
+            return [(el, TriageResult(decision=TriageDecision.KEEP, reason="test")) for el in elements]
+
+        with (
+            patch(
+                "app.services.pipeline.content_ingestion_service._write_markdown_snapshot",
+                return_value="snap.md",
+            ),
+            patch(
+                "app.services.pipeline.content_ingestion_service.filter_elements",
+                side_effect=mock_filter_elements,
+            ),
         ):
             result = await persist_parsed_document(db, kap_report, stock_id=1, parsed_document=doc)
 
@@ -242,9 +252,19 @@ class TestPersistParsedDocument:
             ],
         )
 
-        with patch(
-            "app.services.pipeline.content_ingestion_service._write_markdown_snapshot",
-            return_value="snap.md",
+        async def mock_filter_elements(elements, db, stock_symbol="", report_year=0):
+            from app.services.pipeline.triage_service import TriageResult, TriageDecision
+            return [(el, TriageResult(decision=TriageDecision.KEEP, reason="test")) for el in elements]
+
+        with (
+            patch(
+                "app.services.pipeline.content_ingestion_service._write_markdown_snapshot",
+                return_value="snap.md",
+            ),
+            patch(
+                "app.services.pipeline.content_ingestion_service.filter_elements",
+                side_effect=mock_filter_elements,
+            ),
         ):
             result = await persist_parsed_document(db, kap_report, stock_id=1, parsed_document=doc)
 
@@ -290,9 +310,19 @@ class TestPersistParsedDocument:
             ],
         )
 
-        with patch(
-            "app.services.pipeline.content_ingestion_service._write_markdown_snapshot",
-            return_value="snap.md",
+        async def mock_filter_elements(elements, db, stock_symbol="", report_year=0):
+            from app.services.pipeline.triage_service import TriageResult, TriageDecision
+            return [(el, TriageResult(decision=TriageDecision.KEEP, reason="test")) for el in elements]
+
+        with (
+            patch(
+                "app.services.pipeline.content_ingestion_service._write_markdown_snapshot",
+                return_value="snap.md",
+            ),
+            patch(
+                "app.services.pipeline.content_ingestion_service.filter_elements",
+                side_effect=mock_filter_elements,
+            ),
         ):
             result = await persist_parsed_document(db, kap_report, stock_id=1, parsed_document=doc)
 

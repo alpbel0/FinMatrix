@@ -8,6 +8,7 @@ dependencies = [
     "pdfplumber>=0.10.0",
     "docling>=2.0.0,<3.0.0",
     "nltk>=3.8.0",
+    "psycopg2-binary>=2.9.9",
 ]
 
 [tool.pytest.ini_options]

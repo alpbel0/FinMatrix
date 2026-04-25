@@ -26,6 +26,7 @@ from app.models.extracted_table import ExtractedTable
 from app.models.kap_report import KapReport
 from app.services.pipeline.document_parser import ParsedDocument, ParsedElement, prepend_summary_element
 from app.services.pipeline.sentence_splitter import split_text_into_chunks
+from app.services.pipeline.triage_service import filter_elements
 from app.services.utils.logging import logger
 
 
@@ -303,15 +304,30 @@ async def persist_parsed_document(
     settings = get_settings()
     enriched_document = prepend_summary_element(parsed_document, kap_report.summary)
     content_elements = assemble_content_elements(enriched_document, settings.chunk_target_tokens)
+
+    # ------------------------------------------------------------
+    # Triage filter: discard low-value blocks before persistence
+    # ------------------------------------------------------------
+    stock_symbol = getattr(kap_report.stock, "symbol", "") if kap_report.stock else ""
+    report_year = kap_report.published_at.year if kap_report.published_at else 0
+    triaged_pairs = await filter_elements(
+        content_elements,
+        db,
+        stock_symbol=stock_symbol,
+        report_year=report_year,
+    )
+    triaged_elements = [el for el, _ in triaged_pairs]
+    discarded_count = len(content_elements) - len(triaged_elements)
+
     markdown_path = _write_markdown_snapshot(kap_report, enriched_document.markdown)
 
     created_count = 0
     linked_count = 0
-    skipped_count = 0
+    skipped_count = discarded_count  # triage discards count as skipped
     touched_content_ids: set[int] = set()
     link_order = 0
 
-    for element in content_elements:
+    for element in triaged_elements:
         # --------------------------------------------------------------
         # 1. Extracted table persistence
         # --------------------------------------------------------------
@@ -397,7 +413,7 @@ async def persist_parsed_document(
                     element_order=link_order,
                     parser_version=enriched_document.parser_version,
                     parent_content_id=parent.id,
-                    is_synthetic=False,
+                    is_synthetic=element.is_synthetic,
                 )
                 if child_content.id not in touched_content_ids:
                     created_count += 1
@@ -413,7 +429,7 @@ async def persist_parsed_document(
                 element_order=link_order,
                 parser_version=enriched_document.parser_version,
                 parent_content_id=None,
-                is_synthetic=False,
+                is_synthetic=element.is_synthetic,
             )
             if content.id not in touched_content_ids:
                 created_count += 1

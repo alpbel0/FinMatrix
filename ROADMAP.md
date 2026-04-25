@@ -705,21 +705,28 @@ FinMatrix/
 - [x] Golden file: `tests/fixtures/golden/sample_kap_thyao_2025_fr.json`
 - [x] Test DB setup duzeltildi: `alembic/env.py` test fixture URL'sini ezmemesi icin guncellendi
 
-### Task 5.3: Triage Sistemi (Blacklist/Whitelist/Greylist)
+### Task 5.3: Triage Sistemi (Blacklist/Whitelist/Greylist) + Admin Triage View
 
-**Tahmini Sure:** 4 saat
-**Durum:** Planned
+**Tahmini Sure:** 5 saat
+**Durum:** ✅ Completed
 
-- [ ] `pipeline/triage_service.py` olustur
-- [ ] Blacklist: "Bagimsiz Denetci Gorusu", kapak sayfasi, TOC -> direkt DISCARD
-- [ ] Whitelist: "Finansal Durum", "Gelir Tablosu", "Yonetim Kurulu Raporu" -> direkt KEEP
-- [ ] Greylist: 20 karakterden kisa ve harf icermeyenler -> hizli DISCARD
-- [ ] LLM Check (4o-mini): Kalan None / bilinmeyen basliklar 4o-mini'ye gonder
-  - [ ] Batch size: 20-30 baslik per call
-  - [ ] Prompt: Ust Baslik + metin (ilk 100 token) -> {"is_valuable": true/false, "suggested_section": "..."}
-  - [ ] Deger tasiyan None bloklara yapay baslik ata
-- [ ] processing_cache tablosunu kullan: ayni section_path icin karar onceden verildiyse tekrar sorma
-- [ ] Unit tests: test_triage_service.py (blacklist, whitelist, greylist, LLM check, cache hit)
+- [x] `pipeline/triage_service.py` olustur
+  - [x] Blacklist regex: "Bağımsız Denetçi Görüşü", "Sorumluluk Beyanı", "Kapak Sayfası", "İçindekiler", "TOC" -> DISCARD
+  - [x] Whitelist regex: "Bilanço", "Gelir Tablosu", "Yönetim Kurulu Raporu", "Önemli Olaylar", "Finansal Durum" -> KEEP
+  - [x] Greylist hızlı eleme: 20 karakterden kısa ve harf içermeyen -> DISCARD
+  - [x] LLM Check (4o-mini): Kalan bilinmeyen başlıklar + None başlıklar batch olarak gönder
+    - [x] Batch size: 20-30 başlık per call
+    - [x] Prompt: Üst Başlık + Type (heading/paragraph/table) + metin (ilk 100 token) -> {"is_valuable": true/false, "suggested_section": "..."}
+    - [x] Değer taşıyan None bloklara yapay başlık ata → SYNTHETIC kararı
+  - [x] processing_cache tablosunu kullan: normalize edilmiş section_path cache key
+- [x] `content_ingestion_service.py` entegrasyonu: parser sonrası triage filtresi ekle (DISCARD olanlar DB'ye yazılmasın)
+- [x] Retro triage script: `scripts/backfill_triage.py` — mevcut document_contents üzerinde bir defalık çalıştır
+- [x] Admin Triage View endpoint:
+  - [x] `GET /api/admin/triage` — processing_cache + document_contents birleşik listesi
+  - [x] Filtreler: decision, search, synthetic_only
+  - [x] Stats aggregation: toplam karar, keep/discard/synthetic sayıları
+- [x] Unit tests: `test_triage_service.py` (blacklist, whitelist, greylist, LLM check, cache hit, None Section Path, batch processing)
+- [x] Integration tests: `test_admin_triage_api.py` (cache + synthetic response, filtreleme, sayfalama)
 
 ### Task 5.4: Semantik Chunking + Parent-Child Retrieval
 

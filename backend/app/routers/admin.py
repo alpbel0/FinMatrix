@@ -8,8 +8,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_db_session
+from app.models.document_content import DocumentContent
+from app.models.processing_cache import ProcessingCache
 from app.models.scheduler_setting import SchedulerSetting
 from app.models.pipeline_log import PipelineLog
+from app.models.stock import Stock
 from app.models.user import User
 from app.schemas.scheduler import (
     FinancialReportingModeRequest,
@@ -18,6 +21,12 @@ from app.schemas.scheduler import (
     ManualSyncResponse,
     SchedulerStatusResponse,
     JobStatus,
+)
+from app.schemas.triage import (
+    CacheDecisionItem,
+    SyntheticContentItem,
+    TriageStats,
+    TriageViewResponse,
 )
 from app.services.auth_service import get_current_user
 from app.services.pipeline.scheduler import (
@@ -301,4 +310,103 @@ async def trigger_kap_sync(
         status="triggered",
         symbols_count=len(symbols),
         message=f"KAP sync job triggered for {request.universe}. Check pipeline_logs for results.",
+    )
+
+
+@router.get("/triage", response_model=TriageViewResponse)
+async def get_triage_view(
+    decision: str | None = None,
+    search: str | None = None,
+    synthetic_only: bool = False,
+    limit: int = 50,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db_session),
+    admin_user: User = Depends(get_admin_user),
+) -> TriageViewResponse:
+    """Admin triage view: see which sections were kept, discarded, or synthetically labeled.
+
+    Query params:
+        decision: Filter cache decisions by KEEP/DISCARD/SYNTHETIC
+        search: Search within section_path or content preview
+        synthetic_only: Show only synthetic sections
+        limit/offset: Pagination
+    """
+    # --- Cache decisions ---
+    cache_query = select(ProcessingCache).order_by(ProcessingCache.decided_at.desc())
+    if decision:
+        cache_query = cache_query.where(ProcessingCache.decision == decision.upper())
+    if search:
+        cache_query = cache_query.where(
+            ProcessingCache.section_path.ilike(f"%{search}%")
+        )
+    cache_query = cache_query.limit(limit).offset(offset)
+
+    cache_result = await db.execute(cache_query)
+    cache_rows = cache_result.scalars().all()
+
+    cache_decisions = [
+        CacheDecisionItem(
+            section_path=row.section_path,
+            decision=row.decision,
+            suggested_label=row.suggested_label,
+            decided_by=row.decided_by,
+            decided_at=row.decided_at,
+        )
+        for row in cache_rows
+    ]
+
+    # --- Synthetic contents ---
+    content_query = (
+        select(DocumentContent, Stock.symbol)
+        .join(Stock, DocumentContent.stock_id == Stock.id)
+        .order_by(DocumentContent.created_at.desc())
+    )
+    if synthetic_only:
+        content_query = content_query.where(DocumentContent.is_synthetic_section.is_(True))
+    if search:
+        content_query = content_query.where(
+            DocumentContent.section_path.ilike(f"%{search}%")
+            | DocumentContent.content_text.ilike(f"%{search}%")
+        )
+    content_query = content_query.limit(limit).offset(offset)
+
+    content_result = await db.execute(content_query)
+    content_rows = content_result.all()
+
+    synthetic_contents = [
+        SyntheticContentItem(
+            id=doc.id,
+            section_path=doc.section_path,
+            content_preview=(doc.content_text or "")[:300],
+            stock_symbol=symbol,
+            element_type=doc.content_type,
+            created_at=doc.created_at,
+            is_synthetic_section=doc.is_synthetic_section,
+        )
+        for doc, symbol in content_rows
+    ]
+
+    # --- Stats ---
+    total_cache = await db.execute(select(ProcessingCache.id))
+    keep_count = await db.execute(
+        select(ProcessingCache.id).where(ProcessingCache.decision == "KEEP")
+    )
+    discard_count = await db.execute(
+        select(ProcessingCache.id).where(ProcessingCache.decision == "DISCARD")
+    )
+    synthetic_count = await db.execute(
+        select(DocumentContent.id).where(DocumentContent.is_synthetic_section.is_(True))
+    )
+
+    stats = TriageStats(
+        total_cache_entries=len(total_cache.scalars().all()),
+        keep_count=len(keep_count.scalars().all()),
+        discard_count=len(discard_count.scalars().all()),
+        synthetic_count=len(synthetic_count.scalars().all()),
+    )
+
+    return TriageViewResponse(
+        cache_decisions=cache_decisions,
+        synthetic_contents=synthetic_contents,
+        stats=stats,
     )
