@@ -1,4 +1,4 @@
-# FinMatrix - Development Roadmap
+﻿# FinMatrix - Development Roadmap
 
 > Proje: AI-Powered Stock Analysis Platform for BIST Investors
 > Baslangic: Nisan 2026
@@ -678,76 +678,92 @@ FinMatrix/
 - [x] Unit tests: 31 tests passing
 - [x] Integration tests: Real PDF download tests for THYAO, GARAN, AKBNK
 
-### Task 5.2: PDF Text Extraction ve Chunking
+### Task 5.2: PDF Yapisal Ayristirma ve Chunking (Docling)
+
+**Tahmini Sure:** 6 saat
+**Durum:** Planned
+
+- [ ] `pipeline/document_parser.py` olustur
+  - [ ] Docling (DocumentConverter) ana parser olarak entegre et
+  - [ ] pdfplumber fallback: Docling None donersa devreye girer
+  - [ ] Her blok icin section_path, block_type, raw_text cikar
+  - [ ] Tablo bloklarini ayir: PostgreSQL `extracted_tables` + Markdown olarak ChromaDB icin hazirla
+  - [ ] `document_contents` tablosuna yaz (yeni RAG-ready tablo)
+  - [ ] `chunk_report_links` tablosunu doldur (parent-child iliskisi)
+- [ ] DB schema guncelleme (Alembic migration):
+  - [ ] `document_contents`: id, kap_report_id, section_path, block_type, raw_text, processed_text, content_hash, parent_content_id, embedding_status, created_at
+  - [ ] `extracted_tables`: id, kap_report_id, section_path, table_markdown, table_json, page_number, created_at
+  - [ ] `chunk_report_links`: id, parent_id, child_id, link_type
+  - [ ] `processing_cache`: id, section_path, decision (KEEP/DISCARD), suggested_label, decided_by, decided_at
+- [ ] Unit tests: test_document_parser.py
+- [ ] Integration tests: Real PDF parse ile THYAO/GARAN ornekleri
+
+### Task 5.3: Triage Sistemi (Blacklist/Whitelist/Greylist)
 
 **Tahmini Sure:** 4 saat
-**Durum:** Completed
+**Durum:** Planned
 
-- [x] `chunking_service.py` olustur
-- [x] PDF -> text extraction yaz (pdfplumber)
-- [x] Turkce karakterleri dogrula
-- [x] Chunk size: ~500 token
-- [x] Overlap: ~50 token
-- [x] Paragraf sinirina duyarli bolme mantigi yaz
-- [x] Hash hesapla (SHA-256)
-- [x] `document_chunks` tablosuna yaz
-- [x] Boilerplate filtering (cover page, TOC, short blocks, low alpha ratio)
-- [x] Empty PDF handling (COMPLETED + chunking_error)
-- [x] Unique constraint: (kap_report_id, chunk_text_hash)
-- [x] KapReport modeline chunking_status, chunking_error, chunked_at alanlari eklendi
-- [x] Scheduled job: `chunking_hourly` (hourly)
-- [x] Unit tests: 39 tests passing
+- [ ] `pipeline/triage_service.py` olustur
+- [ ] Blacklist: "Bagimsiz Denetci Gorusu", kapak sayfasi, TOC -> direkt DISCARD
+- [ ] Whitelist: "Finansal Durum", "Gelir Tablosu", "Yonetim Kurulu Raporu" -> direkt KEEP
+- [ ] Greylist: 20 karakterden kisa ve harf icermeyenler -> hizli DISCARD
+- [ ] LLM Check (4o-mini): Kalan None / bilinmeyen basliklar 4o-mini'ye gonder
+  - [ ] Batch size: 20-30 baslik per call
+  - [ ] Prompt: Ust Baslik + metin (ilk 100 token) -> {"is_valuable": true/false, "suggested_section": "..."}
+  - [ ] Deger tasiyan None bloklara yapay baslik ata
+- [ ] processing_cache tablosunu kullan: ayni section_path icin karar onceden verildiyse tekrar sorma
+- [ ] Unit tests: test_triage_service.py (blacklist, whitelist, greylist, LLM check, cache hit)
 
-### Task 5.3: Embedding Pipeline
+### Task 5.4: Semantik Chunking + Parent-Child Retrieval
 
 **Tahmini Sure:** 4 saat
-**Durum:** Completed
+**Durum:** Planned
 
-- [x] `embedding_service.py` olustur
-- [x] ChromaDB client baglantisini kur
-- [x] Collection olustur: `kap_documents`
-- [x] Embedding modeli sec: openai/text-embedding-3-small (1536 dim)
-- [x] PENDING chunk'lari embed et (OpenRouter API)
-- [x] Metadata ekle: stock_symbol, report_title, published_at, chunk_index, filing_type, kap_report_id
-- [x] Status alanlarini guncelle (EmbeddingStatus enum: PENDING/COMPLETED/FAILED)
-- [x] Batch processing: 100 chunks per API call, 500 chunks per scheduler run
-- [x] Scheduled job: `embedding_10min` (every 10 minutes)
-- [x] Unit tests: 25 tests passing
+- [ ] `pipeline/chunking_service.py` olustur (yeniden yazildi)
+- [ ] Semantic chunking: Docling anlamsal bloklari temel birim, cumleler ortadan bolunmuyor
+  - [ ] Hedef: 512-1024 token / chunk
+  - [ ] Kesim noktasi: onceki cumlenin bittigi yer
+  - [ ] Overlap yok (Parent-Child ile baglam saglanacak)
+- [ ] Parent-Child kayit:
+  - [ ] Parent: tum seksiyon metni document_contents'e yaz
+  - [ ] Child: alt parcalar ayni tabloya yaz, parent_content_id ile parent'a bagla
+  - [ ] chunk_report_links ile iliskiyi kaydet
+- [ ] Semantic Context Prepend: Her child chunk basina [BAGIAM: {symbol} - {year} - {section_path}] etiketi ekle
+- [ ] Unit tests: test_chunking_service.py (parent-child olusturma, context prepend)
 
-### Task 5.4: Retriever
+### Task 5.5: Embedding Pipeline Guncellemesi
 
 **Tahmini Sure:** 3 saat
-**Durum:** Completed
+**Durum:** Planned
 
-- [x] `rag/retriever.py` olustur
-- [x] Similarity search yaz (L2 distance)
-- [x] Stock symbol metadata filter ekle
-- [x] Source bilgisiyle sonuc don (RetrievedChunk model)
-- [x] Dedup by chunk_text_hash
-- [x] Unit tests: 17 tests passing
+- [ ] `pipeline/embedding_service.py` guncelle (yeni document_contents tablosuna yazar)
+- [ ] Model: openai/text-embedding-3-small (1536 dim) -- degismedi
+- [ ] Metadata guncelle: stock_symbol, report_year, section_path, block_type, parent_content_id, kap_report_id
+- [ ] Batch processing: 100 chunk per API call, 500 per scheduler run
+- [ ] Status: EmbeddingStatus enum (PENDING/COMPLETED/FAILED) -> document_contents.embedding_status
+- [ ] Scheduled job: embedding_10min (every 10 minutes)
+- [ ] Unit tests: test_embedding_service.py
 
-### Task 5.5: Query Understanding + Retrieval + Response Agent Layer
+### Task 5.6: Retriever (Parent-Child + Cross-Encoder Reranker)
 
-**Tahmini Sure:** 5 saat
-**Durum:** Completed
+**Tahmini Sure:** 4 saat
+**Durum:** Planned
 
-- [x] `schemas/enums.py` olustur - DocumentType, QueryIntent enums
-- [x] `config.py` - LLM model settings (query_understanding_model, response_agent_model)
-- [x] `services/agents/symbol_resolver.py` - DB lookup + alias fallback
-- [x] `services/agents/prompt_loader.py` - YAML prompt loader
-- [x] `prompts/query_understanding.yaml` - Query analysis prompt
-- [x] `services/agents/query_understanding_agent.py` - Intent/symbol extraction
-- [x] `services/agents/retrieval_agent.py` - Deterministic retrieval wrapper
-- [x] `prompts/response_agent.yaml` - Response generation prompt
-- [x] `services/agents/response_agent.py` - Turkish response with citations
-- [x] `services/chat_rag_service.py` - Pipeline orchestration
-- [x] Multi-factor sufficiency check (distance + length + count)
-- [x] Soft fallback for insufficient context
-- [x] Greeting handling (belge odaklı yönlendirme)
-- [x] Unit tests: 87 tests passing
-- Models: query_understanding=gemma-4-26b, response=gemini-3.1-flash-lite
+- [ ] `rag/retriever.py` yeniden yaz
+- [ ] Arama akisi:
+  1. ChromaDB'de child chunk'lari sorgula (similarity search)
+  2. Her child icin parent_content_id ile parent chunk'i PostgreSQL'den cek
+  3. Child + Parent birlesik metni Cross-Encoder'a ver
+  4. Cross-Encoder skoruna gore sirala, top-k sec
+- [ ] Cross-Encoder: cross-encoder/ms-marco-MiniLM-L-2-v2 (~67MB, lokal calistir)
+  - [ ] sentence_transformers.CrossEncoder ile yukle
+  - [ ] Torch: Docling zaten yukluyor, ek yuk minimal
+  - [ ] Async: asyncio.run_in_executor ile threadpool'da calistir
+- [ ] Metadata filter: stock_symbol, report_year, section_path
+- [ ] RetrievedChunk modeli guncelle: child_text, parent_text, cross_encoder_score, section_path
+- [ ] Unit tests: test_retriever.py (parent-child birlestirme, cross-encoder siralama, metadata filter)
 
-### Task 5.6: Chat Frontend Ilk Entegrasyon
+### Task 5.7: Chat Frontend Entegrasyonu
 
 **Tahmini Sure:** 3 saat
 **Durum:** Completed
@@ -755,406 +771,251 @@ FinMatrix/
 - [x] `services/chat_service.py` - Session/message management
 - [x] `routers/chat.py` - API endpoints (GET/POST sessions, POST messages)
 - [x] `models/chat.py` - sources_metadata JSONB field
-- [x] `alembic/versions/a1b2c3d4e5f7_add_sources_metadata_to_chat_messages.py`
-- [x] `frontend/js/api.js` - Chat API functions (getChatSessions, createChatSession, sendChatMessage)
+- [x] `frontend/js/api.js` - Chat API functions
 - [x] `frontend/js/chat.js` - Real API connection, source panel rendering
 - [x] `frontend/chat.html` - Source cards UI, loading state
 - [x] Chat session creation + message persistence
-- [x] Source transparency in frontend
 
-### Task 5.7: Chat/RAG Trace Logging
+### Task 5.8: Chat/RAG Trace Logging
 
 **Tahmini Sure:** 3 saat
 **Durum:** Completed
 
 - [x] `models/chat_trace.py` olustur
-- [x] `alembic/versions/b9d0e1f2a3b4_add_chat_traces.py` migration dosyasini ekle
 - [x] `services/chat_trace_service.py` - structured trace persistence
-- [x] `chat_service.py` icinde user_message_id / assistant_message_id ile trace lifecycle kur
-- [x] Query understanding payload'ini JSONB olarak kaydet
-- [x] Retrieval summary + source metadata'yi JSONB olarak kaydet
-- [x] Response summary + insufficient_context bilgisini kaydet
-- [x] resolved_symbol, document_type, intent, confidence gibi debug alanlarini sakla
-- [x] duration_ms ve error_message alanlarini doldur
-- [x] Basarili ve hatali akislari ayri status ile logla (`SUCCESS` / `FAILED`)
-- [x] Unit tests: `test_chat_trace_service.py`
+- [x] Query understanding payload JSONB olarak kaydedildi
+- [x] Retrieval summary + source metadata JSONB olarak kaydedildi
+- [x] duration_ms ve error_message alanlari dolduruldu
+- [x] Unit tests: test_chat_trace_service.py
 
 ---
 
-## Week 6: CrewAI Orchestration, Numerical Analysis ve Chat UX Derinlestirme
+# Phase 4 - 6-Ajan LangGraph Mimarisi
+
+## Week 6: 6-Ajan Tanimi ve Altyapi
 
 **Tarih:** ___________
-**Hedef:** CrewAI tabanli agent koordinasyonunu kurmak, sayisal analiz akisini eklemek ve chat deneyimini daha analist seviyesine tasimak
-**Durum:** Completed
+**Hedef:** 6 ajanin rollerini, state semasini ve YAML konfigurasyon dosyalarini tanimlamak; her ajan icin izole unit testleri yazmak
+**Durum:** Planned
 
-### Week 6 Mimari Karari: Hibrit CrewAI
+### Week 6 Mimari Karari: 6-Ajan LangGraph State-Machine
 
-Bu hafta itibariyla agent orchestration katmani CrewAI ile kurulacak. Ancak tum is mantigi CrewAI icine gomulmeyecek.
+Yeni mimari dogrudan LangGraph uzerine kurulacak.
 
-**CrewAI olacak katmanlar:**
-- [x] Query classifier agent
-- [x] Text analyst agent
-- [x] Code executor agent
-- [x] Results merger agent
-- [x] Orchestrator / crew wiring
+| Ajan | Rol | Model |
+|---|---|---|
+| Router Agent | Sorguyu siniflandir, chit_chat ise direkt yanitla | google/gemini-3.1-flash-lite-preview |
+| SQL Worker | SELECT-only SQL yaz ve calistir | openai/gpt-4o-mini |
+| Fallback Agent | SQL hatalarinda yardim et (maks 3 retry) | z-ai/glm-5 |
+| RAG Worker | ChromaDB chunk getir, Cross-Encoder ile sirala | cross-encoder/ms-marco-MiniLM-L-2-v2 (lokal) |
+| Analysis Agent | SQL + RAG ciktilarini sentezle, chart_decision uret | anthropic/claude-haiku-4.5 |
+| Visualization Agent | chart_decision + sql_raw_data -> chart_data JSON | openai/gpt-4o-mini |
 
-**Custom kalacak katmanlar:**
-- [x] Retrieval servisleri (`rag/retriever.py`, `services/agents/retrieval_agent.py`)
-- [x] Symbol resolution ve enum normalization
-- [x] Deterministic finansal hesaplar ve metric helper'lari
-- [x] Chart data generation
-- [x] DB yazimlari, API response schema'lari ve trace logging
-- [x] Frontend render mantigi
+**Akis:** Router => [SQL Worker || RAG Worker] => Analysis Agent => Visualization Agent (kosullu) => Final Output
 
-**Temel ilke:**
-- [x] LLM agent karar verir, custom kod icra eder
-- [x] Sayisal hesaplar LLM'e birakilmaz
-- [x] Retrieval ve persistence framework bagimsiz kalir
+**FinMatrixState alanlari:**
+- user_query, chat_history (k=3 sliding window)
+- resolved_symbol, query_type (rag_only / sql_rag / chit_chat)
+- sql_query, sql_raw_data, sql_error, sql_retry_count
+- retrieved_chunks, rag_context
+- summary_markdown, chart_decision, chart_data
+- node_history, fallback_reason
 
-### Task 6.1: CrewAI Query Classifier
+### Task 6.1: FinMatrixState Tanimi
 
 **Tahmini Sure:** 2 saat
-**Durum:** Completed
+**Durum:** Planned
 
-- [x] `services/agents/query_classifier.py` dosyasini CrewAI uyumlu hale getir
-- [x] Query type siniflarini netlestir:
-- [x] `text_analysis`
-- [x] `numerical_analysis`
-- [x] `comparison`
-- [x] `general`
-- [x] Classifier output'unu structured schema ile sabitle
-- [x] Orchestrator'a karar verebilir sinyaller ekle:
-- [x] symbol list
-- [x] comparison flag
-- [x] chart_needed flag
-- [x] Heuristic-first classification ekle
-- [x] OpenRouter LLM fallback ekle
-- [x] CrewAI adapter / agent role boundary ekle
-- [x] Testler yaz
+- [ ] `services/agents/graph/state.py` yeniden yaz
+- [ ] FinMatrixState(TypedDict) tum alanlari ile tanimla
+- [ ] query_type enum: rag_only / sql_rag / chit_chat
+- [ ] sql_retry_count: int (maks 3)
+- [ ] chart_decision: Optional[str], chart_data: Optional[dict]
+- [ ] Unit tests: test_graph_state.py
 
-### Task 6.2: CrewAI Text Analyst Agent
+### Task 6.2: YAML Konfigurasyon
+
+**Tahmini Sure:** 2 saat
+**Durum:** Planned
+
+- [ ] `services/agents/config/agents.yaml`: Her ajan icin role, model, temperature, max_tokens
+- [ ] `services/agents/config/tasks.yaml`: Her ajan icin system_prompt, expected_output_format
+- [ ] YAML loader utility: `config/loader.py`
+- [ ] Unit tests: test_yaml_config.py
+
+### Task 6.3: Router Agent
 
 **Tahmini Sure:** 3 saat
-**Durum:** Completed
+**Durum:** Planned
 
-- [x] `services/agents/text_analyst.py` dosyasini CrewAI uyumlu role wrapper olarak kur
-- [x] Mevcut RAG retrieval katmanini tool/service olarak kullan
-- [x] Kaynakli text analysis uret
-- [x] Risk/firsat/ozet sorularinda belge tabanli analiz ver
-- [x] Retrieval sonucu ve source metadata'yi structured output olarak don
-- [x] Fallback: retrieval bos veya zayifsa hallucination yerine soft failure don
-- [x] TextAnalysisResult schema ekle
-- [x] Unit testler yaz
-- [x] Canli THYAO smoke testi yap
+- [ ] `services/agents/router_agent.py` olustur
+- [ ] Model: google/gemini-3.1-flash-lite-preview
+- [ ] Cikti: query_type (rag_only / sql_rag / chit_chat) + resolved_symbol
+- [ ] chit_chat: Router direkt yanitlar, diger ajanlar tetiklenmez
+- [ ] LangGraph edge: query_type'a gore routing
+- [ ] Unit tests: test_router_agent.py (rag_only, sql_rag, chit_chat senaryolari)
 
-### Task 6.3: CrewAI Code Executor Agent
+### Task 6.4: SQL Worker + Fallback Agent
 
 **Tahmini Sure:** 4 saat
-**Durum:** ✅ Completed
+**Durum:** Planned
 
-- [x] `services/agents/code_executor.py` olustur
-- [x] Agent'in rolunu "deterministic calculators'i cagiran karar katmani" olarak tasarla
-- [x] Sayisal veri icin `borsapy` + DB yuzeyini kullan
-- [x] Deterministic metric helper'lari yaz / bagla:
-- [x] Net profit growth
-- [x] P/E comparison
-- [x] Debt/Equity
-- [x] ROE
-- [x] Chart data generation akisini ekle
-- [x] Timeout ve sandbox sinirlari belirle
-- [x] Test: `THYAO vs ASELS net kar` karsilastirmasi (40 test gecti)
+- [ ] `services/agents/sql_worker.py` olustur
+  - [ ] Model: openai/gpt-4o-mini
+  - [ ] SELECT-only izolasyonu: ayri read-only DB kullanicisi
+  - [ ] Math Tool: deterministik hesaplamalar icin Python fonksiyonlari
+  - [ ] SQL Tool: sadece SELECT sorgulari calistir
+  - [ ] Hata yonetimi: sql_error state alanina yaz
+- [ ] `services/agents/fallback_agent.py` olustur
+  - [ ] Model: z-ai/glm-5
+  - [ ] SQL hatasi alindiysa devreye gir
+  - [ ] Maks 3 retry: cozemezse sql_raw_data = null, Analysis devam eder
+  - [ ] Retry sayacini sql_retry_count ile takip et
+- [ ] Unit tests: test_sql_worker.py, test_fallback_agent.py
 
-### Task 6.4: CrewAI Results Merger
-
-**Tahmini Sure:** 2 saat
-**Durum:** ✅ Completed
-
-- [x] `services/agents/merger.py` olustur
-- [x] Text agent + numerical agent ciktilarini birlestir
-- [x] Source referanslarini deduplicate et
-- [x] Comparison table payload'i hazirla
-- [x] Chart varsa final response schema'sina ekle
-- [x] Suggested questions icin frontend'e uygun sabit button akisini destekle
-- [x] Final output'u frontend dostu structured response'a cevir
-
-### Task 6.5: CrewAI Orchestrator
+### Task 6.5: RAG Worker
 
 **Tahmini Sure:** 3 saat
-**Durum:** ✅ Completed
+**Durum:** Planned
 
-- [x] `services/agents/orchestrator.py` olustur
-- [x] Akis: Query classify → numerical/text analysis → merge (sequential)
-- [x] Sonuclari birlestir: numerical once (yapilandirilmis metin/tablo/chart), sonra text (paragraf)
-- [x] Final cevabi dondur: `run_orchestrated_pipeline` → `ChatPipelineResult`
-- [x] Chat service baglantisi: orchestrator hazir, `chat_service.py` guncellemesi Task 6.5 scope'unda
-- [x] Agent'lar: `classify_query`, `run_text_analysis`, `run_numerical_analysis` entegre
-- [ ] Judge entegrasyonu icin hook birak, ama judge'i Week 8 scope'unda tut
+- [ ] `services/agents/rag_worker.py` olustur
+- [ ] Task 5.6 Retriever'i cagir (Parent-Child + Cross-Encoder)
+- [ ] retrieved_chunks -> rag_context metni olarak hazirla
+- [ ] Section path bilgisini context'e ekle
+- [ ] SQL Worker ile PARALEL calisir (LangGraph async)
+- [ ] Unit tests: test_rag_worker.py
 
-### Task 6.6: Agent Tests ve Mock Katmani
-
-**Tahmini Sure:** 3 saat
-**Durum:** ✅ Completed
-
-- [x] `tests/mocks/mock_openrouter.py`
-- [x] `tests/mocks/mock_crewai.py`
-- [x] `tests/unit/test_query_classifier.py` (17 tests)
-- [x] `tests/unit/test_text_analyst.py` (8 tests)
-- [x] `tests/unit/test_code_executor.py` (40 tests)
-- [x] `tests/unit/test_merger.py` (6 tests)
-- [x] `tests/unit/test_orchestrator.py` (8 tests)
-- [x] `tests/unit/test_agent_trace_logging.py` (15 tests)
-
-### Task 6.7: Chat UX ve Inline Chart
+### Task 6.6: Analysis Agent
 
 **Tahmini Sure:** 3 saat
-**Durum:** ✅ Completed
+**Durum:** Planned
 
-- [x] Chat cevabindaki chart alanini frontend'de render et
-- [x] Source transparency UI'sini son sekline yaklastir
-- [x] Suggested questions alanini ekle (frontend'de sabit 3 button, sticky behavior)
-- [x] Comparison table varsa inline HTML tablo olarak goster
-- [x] Chat gecmisinin temel UX akisini tamamla
-- [x] Numerical/text/comparison cevap tipleri icin uygun render farklarini ekle
+- [ ] `services/agents/analysis_agent.py` olustur
+- [ ] Model: anthropic/claude-haiku-4.5
+- [ ] Giris: sql_raw_data + rag_context + user_query
+- [ ] Cikti: summary_markdown + chart_decision (grafik tipi ve hangi veri -- chart_data uretmez)
+- [ ] Unit tests: test_analysis_agent.py
 
-### Week 6 Sonunda Beklenen Cikti
+### Task 6.7: Visualization Agent
 
-- [x] Chat artik sadece belge cevabi degil, soru tipine gore agent secen bir sisteme donusmus olacak
-- [x] Sayisal sorular deterministic hesaplarla cevaplanacak
-- [x] Karsilastirma sorulari tek cevapta analiz + tablo + chart ile donulebilecek
-- [x] CrewAI, agent koordinasyon katmaninda aktif olarak kullaniliyor olacak
-- [x] Retrieval, DB, trace ve chart payload katmanlari halen custom ve debug edilebilir kalacak
+**Tahmini Sure:** 3 saat
+**Durum:** Planned
+
+- [ ] `services/agents/visualization_agent.py` olustur
+- [ ] Model: openai/gpt-4o-mini
+- [ ] Giris: chart_decision + sql_raw_data
+- [ ] Cikti: chart_data (Chart.js uyumlu JSON)
+- [ ] Analysis Agent'tan sonra sekans olarak calisir (sadece chart_decision doluysa tetiklenir)
+- [ ] Unit tests: test_visualization_agent.py
+
+### Task 6.8: Loglama ve Trace Altyapisi
+
+**Tahmini Sure:** 3 saat
+**Durum:** Planned
+
+- [ ] Her ajan node'una structured logging ekle (node adi, giris/cikis ozeti, sure, hata)
+- [ ] node_history state alanini her node'dan sonra guncelle
+- [ ] chat_trace_service.py guncelle: node_history JSONB olarak kaydet
+- [ ] LangSmith entegrasyonu:
+  - [ ] LANGCHAIN_TRACING_V2=true env variable
+  - [ ] LANGCHAIN_API_KEY config.py'ye ekle
+  - [ ] Her LangGraph calismasini LangSmith'e otomatik gonder
+  - [ ] Proje adi: FinMatrix
+- [ ] Unit tests: test_logging_trace.py
 
 ---
 
-# Phase 4 - LangGraph Bridge: Agent Graph Mimarisi
-
-## Week 7: Orchestrator'i LangGraph ile Yeniden Yaz
+## Week 7: LangGraph Orchestration + Chat Entegrasyonu
 
 **Tarih:** ___________
-**Hedef:** Mevcut if/else orchestrator mantigini tipli, izlenebilir ve genisletilebilir bir LangGraph state machine'e donusturmek
-**Durum:** In Progress
+**Hedef:** 6 ajani LangGraph graph'ina bagla, chat API'ye entegre et, E2E testleri yaz
+**Durum:** Planned
 
----
+### Task 7.1: LangGraph Workflow Tasarimi
 
-### Task 7.1: Altyapi ve Hazirlik
+**Tahmini Sure:** 3 saat
+**Durum:** Planned
+
+- [ ] `services/agents/graph/workflow.py` yeniden yaz
+- [ ] Node ekle: router, sql_worker, fallback_agent, rag_worker, analysis_agent, visualization_agent
+- [ ] Edge tanimla:
+  - [ ] router -> chit_chat_end (chit_chat ise direkt bitis)
+  - [ ] router -> sql_worker + rag_worker (paralel, sql_rag ise)
+  - [ ] router -> rag_worker (rag_only ise)
+  - [ ] sql_worker -> fallback_agent (hata varsa) ya da analysis_agent (basariliysa)
+  - [ ] fallback_agent -> sql_worker (retry) ya da analysis_agent (maks retry dolunca)
+  - [ ] rag_worker -> analysis_agent
+  - [ ] analysis_agent -> visualization_agent (chart_decision doluysa)
+  - [ ] visualization_agent -> END
+- [ ] get_graph() fonksiyonu: compiled graph dondur
+- [ ] Unit tests: test_graph_workflow.py (routing, parallel exec, retry logic)
+
+### Task 7.2: Orchestrator Entegrasyonu
+
+**Tahmini Sure:** 2 saat
+**Durum:** Planned
+
+- [ ] `services/agents/orchestrator.py` yeniden yaz
+- [ ] run_orchestrated_pipeline(query, chat_history, symbol) imzasini koru
+- [ ] Iceride get_graph().ainvoke(initial_state) cagir
+- [ ] final_state["summary_markdown"] + chart_data -> ChatPipelineResult dondur
+- [ ] node_history -> chat_trace_service'e yaz
+- [ ] Unit tests: test_orchestrator.py
+
+### Task 7.3: API Retry Politikasi
+
+**Tahmini Sure:** 2 saat
+**Durum:** Planned
+
+- [ ] Her LLM cagrisina exponential backoff ekle (max 3 retry, 1s/2s/4s)
+- [ ] Timeout: 30s per LLM call
+- [ ] OpenRouter rate limit handling: 429 -> retry with backoff
+- [ ] Unit tests: test_retry_policy.py
+
+### Task 7.4: Chat API Entegrasyonu
+
+**Tahmini Sure:** 3 saat
+**Durum:** Planned
+
+- [ ] `routers/chat.py` guncelle: yeni orchestrator'i cagir
+- [ ] `schemas/chat.py` guncelle: chart_data, summary_markdown response alanlari
+- [ ] Sliding window chat history: son k=3 mesaji state'e gec
+- [ ] Frontend guncelle: chart_data varsa Chart.js ile render et
+- [ ] Unit tests: test_chat_api.py
+
+### Task 7.5: Graph ve E2E Testleri
+
+**Tahmini Sure:** 4 saat
+**Durum:** Planned
+
+- [ ] `tests/unit/test_graph_routing.py`: query_type'a gore dogru node'a gidiyor mu?
+- [ ] `tests/unit/test_graph_fallback.py`: SQL retry -> fallback -> Analysis akisi dogru mu?
+- [ ] `tests/unit/test_graph_nodes.py`: Her node mock LLM ile dogru state donduruyor mu?
+- [ ] `tests/unit/test_graph_state.py`: FinMatrixState alanlari dogru mu?
+- [ ] `tests/unit/test_graph_trace_history.py`: node_history dogru dolduruluyor mu?
+- [ ] `tests/integration/test_live_graph_e2e.py`: Gercek LLM + gercek ChromaDB ile tam akis
+
+### Task 7.6: LangSmith Dashboard Dogrulama
 
 **Tahmini Sure:** 1 saat
-**Durum:** ✅ Completed
+**Durum:** Planned
 
-- [x] `langgraph>=0.2.0,<1.0.0` paketini `backend/requirements.txt` dosyasina ekle
-- [x] `langgraph` kurulumunu dogrula: `python -c "import langgraph"` basarili
-- [x] `backend/app/services/agents/graph/` klasorunu olustur
-- [x] `backend/app/services/agents/graph/__init__.py` dosyasini olustur (bos, sadece export icin)
-- [x] `backend/app/services/agents/graph/state.py` bos dosyasini olustur
-- [x] `backend/app/services/agents/graph/nodes.py` bos dosyasini olustur
-- [x] `backend/app/services/agents/graph/workflow.py` bos dosyasini olustur
-- [x] Mevcut `test_orchestrator.py`'deki 8 testin gectigini kaydet (baseline coverage)
-- [x] Mevcut `test_agent_trace_logging.py`'deki 15 testin gectigini kaydet (baseline coverage)
-
----
-
-### Task 7.2: State Tasarimi (state.py)
-
-**Tahmini Sure:** 1.5 saat
-**Durum:** ✅ Completed
-
-**Implemente edilen:**
-- [x] `state.py` dosyasi dolu — `NodeTraceEntry` + `AgentState` TypedDict tanimlari
-- [x] `AgentState` 11 alan: query, user_id, session_id, http_client, classification, resolved_symbol, text_result, numerical_result, response, fallback_reason, node_history
-- [x] `node_history` icin `Annotated[list[NodeTraceEntry], operator.add]` parallel-safe reducer
-- [x] `graph/__init__.py` export eklendi
-- [x] `test_graph_state.py` — 11 test gecti (4 NodeTraceEntry + 7 AgentState)
-
----
-
-### Task 7.3: Ince Dugumler - Thin Nodes (nodes.py)
-
-**Tahmini Sure:** 3 saat
-**Durum:** ✅ Completed
-
-**Yardimci fonksiyonlar:**
-- [x] `_start_trace() -> float` — `time.time()` ile baslangic zamanini doner
-- [x] `_make_entry(node, start, status, reason_code) -> NodeTraceEntry` — NodeTraceEntry olusturur, duration_ms hesaplar
-- [x] Her node yeni bir `dict` ile partial state dondurur; `node_history` Annotated[list, operator.add] ile dogru ekleme yapar
-
-**classify_query_node:**
-- [x] `classify_query(state["query"], http_client=state.get("http_client"))` cagir
-- [x] Sonucu `classification` alanina yazar
-- [x] Basarisiz olursa: `classification=None`, `fallback_reason="classification_failed"`, status="error"
-- [x] `node_history`'ye NodeTraceEntry ekler (her durumda)
-
-**resolve_symbol_node:**
-- [x] `classification` None veya `symbols` bos ise: `resolved_symbol=None`, status="skipped", reason_code="no_symbols"
-- [x] `async with AsyncSessionLocal() as db:` ile DB session yonetimi
-- [x] `resolve_symbol(db, classification.symbols[0])` cagir
-- [x] Symbol bulunursa: `resolved_symbol=symbol`, status="ok"
-- [x] Symbol bulunamazsa (None): `resolved_symbol=None`, status="skipped", reason_code="symbol_not_found"
-- [x] Hata durumunda: `fallback_reason="symbol_resolve_error"`, status="error"
-
-**numerical_analysis_node:**
-- [x] `resolved_symbol` None ise: `numerical_result=None`, status="skipped", reason_code="no_symbol"
-- [x] `symbols=[resolved_symbol]` bypass parametresi ile `run_numerical_analysis` cagir (ic resolve_symbol cagrisini önler)
-- [x] `needs_chart=classification.needs_chart` bilgisini tasiyor
-- [x] Hata durumunda: `numerical_result=None`, status="error", reason_code="numerical_failed"
-
-**text_analysis_node:**
-- [x] `async with AsyncSessionLocal() as db:` ile DB session yonetimi
-- [x] `run_text_analysis(db=db, user_id=state["user_id"], session_id=state["session_id"], query=state["query"])` cagir
-- [x] Hata durumunda: `text_result=None`, status="error", reason_code="text_analysis_failed"
-- [x] Local import (`from app.services.agents.text_analyst import run_text_analysis`) ile circular dependency onlenir
-
-**merge_node:**
-- [x] `merge_analysis_results(classification, resolved_symbol, numerical_result, text_result)` cagir (sync, await yok)
-- [x] Hata durumunda: `response=None`, status="error", reason_code="merge_failed"
-
-**fallback_node:**
-- [x] `async with AsyncSessionLocal() as db:` ile DB session yonetimi
-- [x] `run_document_pipeline(db, user_id, session_id, query)` cagir
-- [x] Basarili olursa: `response=pipeline_result.response`, reason_code=state["fallback_reason"]
-- [x] Hata durumunda: `response=None`, status="error", reason_code="fallback_failed"
-- [x] Local import (`from app.services.chat_rag_service import run_document_pipeline`) ile circular dependency onlenir
-
-**Test:** `tests/unit/test_graph_nodes.py` — 18 test, tamamı yeşil
-
----
-
-### Task 7.4: Is Akisi ve Guvenli Singleton (workflow.py)
-
-**Tahmini Sure:** 2 saat
-**Durum:** Completed ✅
-
-**Graph iskelet:**
-- [x] `StateGraph(AgentState)` olustur
-- [x] `add_node("classify_query", classify_query_node)` ekle
-- [x] `add_node("resolve_symbol", resolve_symbol_node)` ekle
-- [x] `add_node("numerical_analysis", numerical_analysis_node)` ekle
-- [x] `add_node("text_analysis", text_analysis_node)` ekle
-- [x] `add_node("merge", merge_node)` ekle
-- [x] `add_node("fallback", fallback_node)` ekle
-
-**Entry ve edge'ler:**
-- [x] `set_entry_point("classify_query")` ile baslangic node'unu belirle
-- [x] `classify_query → resolve_symbol` duz edge ekle
-- [x] `resolve_symbol` → routing fonksiyonu `_route_after_symbol` ile conditional edge ekle:
-  - [x] `classification is None` veya `fallback_reason is not None` → `"fallback"`
-  - [x] `QueryType.GENERAL` → `"fallback"`
-  - [x] `needs_numerical_analysis AND needs_text_analysis` → `"numerical_analysis"` (oncelikli)
-  - [x] `needs_numerical_analysis` → `"numerical_analysis"`
-  - [x] `needs_text_analysis` → `"text_analysis"`
-  - [x] default → `"fallback"`
-- [x] `numerical_analysis` → routing fonksiyonu `_route_after_numerical` ile conditional edge ekle:
-  - [x] `classification.needs_text_analysis` → `"text_analysis"`
-  - [x] default → `"merge"`
-- [x] `text_analysis → merge` duz edge ekle
-- [x] `merge → END` edge ekle
-- [x] `fallback → END` edge ekle
-
-**Singleton pattern:**
-- [x] Module-level `_compiled_graph = None` tanimla
-- [x] `build_workflow() -> StateGraph` fonksiyonu yaz (graph'i compile etmeden don)
-- [x] `get_graph()` fonksiyonu yaz:
-  - [x] `global _compiled_graph` kullan
-  - [x] `_compiled_graph is None` ise `build_workflow().compile()` cagir
-  - [x] Compile edilmis graph'i cache'le ve don
-- [x] `graph/__init__.py`'ye `get_graph` export et
-
----
-
-### Task 7.5: Yeni Graph Testleri (TDD - Once Bunlar!)
-
-**Tahmini Sure:** 3 saat
-**Durum:** Completed ✅
-
-**test_graph_state.py:** (Task 7.2'de implement edildi)
-- [x] `NodeTraceEntry`'nin tum alanlarini (`node`, `status`, `duration_ms`, `reason_code`) icerigini dogrula
-- [x] `AgentState`'in minimal required alanlari ile olusturulabildigini dogrula
-- [x] `node_history`'nin bos list ile basladigini dogrula
-- [x] `fallback_reason`'in default `None` oldugunu dogrula
-- [x] `resolved_symbol`'un default `None` oldugunu dogrula
-
-**test_graph_nodes.py:** (Task 7.3'de implement edildi)
-- [x] `classify_query_node` mock ile cagrildiginda `state["classification"]` doldugunu dogrula
-- [x] `classify_query_node` hata verdikten sonra `state["fallback_reason"] == "classification_failed"` oldugunu dogrula
-- [x] `resolve_symbol_node` sembol listesi bos oldugunda status="skipped" kaydettidgini dogrula
-- [x] `resolve_symbol_node` calistiktan sonra `state["resolved_symbol"]` doldugunu dogrula
-- [x] `numerical_analysis_node` calistiktan sonra `state["numerical_result"]` doldugunu dogrula
-- [x] `text_analysis_node` calistiktan sonra `state["text_result"]` doldugunu dogrula
-- [x] `merge_node` calistiktan sonra `state["response"]` doldugunu dogrula
-- [x] `fallback_node` calistiktan sonra `state["response"]` doldugunu dogrula
-- [x] Her node'un `node_history`'ye tam olarak 1 entry ekledigini dogrula
-
-**test_graph_routing.py:** (Bu task'ta yazildi)
-- [x] `_route_after_symbol` her branch test edildi (8 test)
-- [x] `_route_after_numerical` her branch test edildi (3 test)
-- [x] Graph compile edilebilirligi test edildi (5 test)
-
-**test_graph_fallback.py:** (Bu task'ta yazildi)
-- [x] `test_fallback_on_general_query`: GENERAL → fallback_node cagrildi mi?
-- [x] `test_fallback_on_classification_error`: classify hata verirse fallback devreye girdi mi?
-- [x] `test_fallback_reason_set`: fallback sonrasi `state["fallback_reason"]` dolu mu?
-- [x] `test_fallback_returns_pipeline_result`: fallback_node `ChatPipelineResult` dondu mu?
-
-**test_graph_trace_history.py:** (Bu task'ta yazildi)
-- [x] `test_graph_trace_history_populated`: Her calistirilan node icin `node_history`'de kayit var mi?
-- [x] `test_graph_trace_entry_fields`: Her `NodeTraceEntry`'de `node`, `status`, `duration_ms`, `reason_code` var mi?
-- [x] `test_graph_trace_order`: `node_history` sirasi execution sirasiyla uyusuyor mu?
-
-**Test sonuclari:** 32 yeni test, 32/32 gecti ✅
-- [ ] `test_graph_trace_duration_positive`: Her kaydin `duration_ms > 0` oldugunu dogrula
-- [ ] `test_graph_trace_error_status`: Hata veren node'un status="error" kaydettidgini dogrula
-
----
-
-### Task 7.6: Orchestrator Refactor (Son Adim)
-
-**Tahmini Sure:** 2 saat
-**Durum:** ✅ Completed
-
-**Refactor:**
-- [x] `orchestrator.py`'deki `run_orchestrated_pipeline` imzasini koru (disaridan cagrilan yer degismemeli)
-- [x] Icerdeki tum `if/else` routing mantigini sil
-- [x] `from app.services.agents.graph import get_graph` import et
-- [x] `initial_state: AgentState` olustur: tum zorunlu alanlari doldur
-- [x] `graph = get_graph()` ile graph'i al
-- [x] `final_state = await graph.ainvoke(initial_state)` ile grafigi calistir
-- [x] `final_state["response"]` → `ChatPipelineResult` olarak don
-- [x] `final_state["resolved_symbol"]` → `ChatPipelineResult.resolved_symbol`
-- [x] `final_state["node_history"]` → `chat_trace_service`'e ozet olarak gec
-
-**Trace entegrasyonu:**
-- [x] `node_history` ozetini mevcut `chat_trace_service` trace yapisina yaz
-- [x] Graph summary: kac node calistigini, toplam sure ve son `fallback_reason`'i logla
-- [x] `build_orchestrator_agent()` ve `get_orchestrator_agent()` fonksiyonlarini koru (geriye donuk uyumluluk)
-
-**Dogrulama:**
-- [x] `pytest backend/tests/unit/test_orchestrator_graph.py -v` → 16 test gec ✅
-- [x] `pytest backend/tests/unit/test_agent_trace_logging.py -v` → 15 test gec ✅
-- [x] Eski `test_orchestrator.py` (white-box, if/else mock) silindi — yerine `test_orchestrator_graph.py`
-- [x] `pytest backend/tests/unit/test_graph_routing.py -v` → graph routing testleri gec
-- [x] `pytest backend/tests/unit/test_graph_trace_history.py -v` → trace testleri gec
+- [ ] LangSmith'te trace'lerin geldigini dogrula
+- [ ] Her ajan cagrisinin ayri span olarak gorundugunu kontrol et
+- [ ] Latency ve token kullanimini incele
 
 ---
 
 ### Week 7 Sonunda Beklenen Cikti
 
-- [x] Orchestrator artik if/else yerine LangGraph graph ile yonlendiriyor
-- [x] Her sorgu turu dogru node zincirinden geciyor
-- [x] `node_history` her sorgu icin doluyor ve trace'e yaziliyor
-- [x] `fallback_reason` debug icin state'te mevcut
-- [x] Mevcut tum testler kiriilmadan geciyor
-- [x] Yeni graph testleri (routing, fallback, trace) gecmis durumda
+- [ ] 6 ajan tam olarak entegre ve LangGraph graph'inda calisir
+- [ ] Chat API yeni orchestrator'i kullanir
+- [ ] Her sorgu icin LangSmith'te trace gorulur
+- [ ] Graph testleri (routing, fallback, trace, E2E) gecmis durumda
+- [ ] Yeni FinMatrixState ile tip guvenli state yonetimi saglanmis
 
 ---
 
-### Phase 3: Dashboard & Intelligence Entegrasyonu (Tamamlandı ✅)
-- [x] **Task 3.1: Dashboard "Quick Stats" Entegrasyonu**
-  - [x] `stock_snapshots` tarihsel rasyo tablosunun oluşturulması
-  - [x] `Borsapy` ve `pykap` (fallback) ile günlük veri hattı (Task 4-7)
-  - [x] Tarihsel "time-series" snapshot altyapısının kurulması
-  - [x] Dashboard'daki boş istatistik kartlarının canlı veriye bağlanması
-  - [x] Veri güncelliği (Freshness/Stale) ve kalite kontrolü mekanizması
-
----
 
 # Phase 5 - Entegrasyon Derinlestirme
 
